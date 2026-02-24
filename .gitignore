@@ -5,6 +5,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
+.pnpm-debug.log*
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
@@ -40,6 +41,7 @@ build/Release
 # Dependency directories
 node_modules/
 jspm_packages/
+examples/
 
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/
@@ -47,6 +49,7 @@ web_modules/
 # TypeScript cache
 *.tsbuildinfo
 
+build
 # Optional npm cache directory
 .npm
 
@@ -55,6 +58,12 @@ web_modules/
 
 # Optional stylelint cache
 .stylelintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
 
 # Optional REPL history
 .node_repl_history
@@ -69,6 +78,10 @@ web_modules/
 .env
 .env.*
 !.env.example
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -81,6 +94,8 @@ out
 # Nuxt.js build / generate output
 .nuxt
 dist
+dist/
+.vscode
 
 # Gatsby files
 .cache/
@@ -137,3 +152,11 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+# yarn v2
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+yarn.lock
+package-lock.json
