@@ -2,40 +2,52 @@ import { ResponseDto } from "../../utils/response";
 
 export interface EscrowModuleType {
   create(data: CreateEscrowDto): Promise<ResponseDto<CreateEscrowResponse>>;
-  computeAddress(params: ComputeAddressParams): Promise<ResponseDto<ComputeAddressResponse>>;
-  getStatus(address: string): Promise<ResponseDto<EscrowStatusResponse>>;
-  deposit(address: string, data: DepositDto): Promise<ResponseDto<DepositResponse>>;
-  signRelease(address: string, data: SignReleaseDto): Promise<ResponseDto<SignReleaseResponse>>;
-  release(address: string, data: ReleaseDto): Promise<ResponseDto<ReleaseResponse>>;
+  getStatus(chainId: string, escrowAddress: string): Promise<ResponseDto<EscrowStatusResponse>>;
+  release(escrowAddress: string, data?: ReleaseDto): Promise<ResponseDto<ReleaseResponse>>;
+  updateStatus(escrowAddress: string, data: UpdateEscrowStatusDto): Promise<ResponseDto<PrepareTransactionResponse>>;
+  prepareRelease(escrowAddress: string, recipient?: string): Promise<ResponseDto<PrepareTransactionResponse>>;
   list(params?: ListEscrowsParams): Promise<ResponseDto<ListEscrowsResponse>>;
+  getChains(): Promise<ResponseDto<GetEscrowChainsResponseDto>>;
+  getAssets(chainId: string): Promise<ResponseDto<GetEscrowAssetsResponseDto>>;
 }
 
 export interface CreateEscrowDto {
-  sender: string;
-  receiver: string;
-  asset: string;
+  chainId: string;
+  buyer: string;
+  seller: string;
+  title: string;
+  description?: string;
   amount: string;
-  originator: string;
-  salt: string;
-  metadataHash?: string;
+  asset: string;
+  expiration?: string;
+  releaseType?: string;
 }
 
 export interface CreateEscrowResponse {
-  escrowAddress: string;
-  shardTokenAddress?: string;
-  shardHolders?: {
-    sender: string;
-    receiver: string;
-    guardian: string;
+  buyerWallet: string;
+  sellerWallet: string;
+  arbiterWallet: string;
+  title: string;
+  description: string | null;
+  amount: number | string;
+  expiration: string;
+  releaseType: number | string;
+  metadataHash: string;
+  chainId: string | null;
+  onChain: {
+    txHash: string;
+    escrowAddress: string;
+    approve: {
+      to: string;
+      data: string;
+      value: string;
+    } | null;
+    deposit: {
+      to: string;
+      data: string;
+      value: string;
+    };
   };
-  config?: {
-    asset: string;
-    amount: string;
-    feeBps: number;
-    feePercentage: string;
-  };
-  transactionHash?: string;
-  blockNumber?: number;
 }
 
 export interface ComputeAddressParams {
@@ -54,21 +66,16 @@ export interface ComputeAddressResponse {
 }
 
 export interface EscrowStatusResponse {
-  escrowAddress: string;
+  chainId: string;
+  escrow: string;
+  buyer: string;
+  seller: string;
+  arbiter: string;
   deposited: boolean;
   released: boolean;
+  readyForRelease: boolean;
+  buyerReleaseReady: boolean;
   balance: string;
-  balanceFormatted?: string;
-  config?: {
-    sender: string;
-    receiver: string;
-    originator: string;
-    asset: string;
-    amount: string;
-    feeBps: number;
-  };
-  shardToken?: string;
-  nonce?: number;
 }
 
 export interface DepositDto {
@@ -96,24 +103,35 @@ export interface SignReleaseResponse {
 }
 
 export interface ReleaseDto {
-  signatures: string[];
-  executor: string;
+  recipient?: string;
 }
 
 export interface ReleaseResponse {
-  transactionHash: string;
-  blockNumber: number;
-  released: boolean;
-  payout: string;
-  payoutFormatted?: string;
-  fee: string;
-  feeFormatted?: string;
-  paktRewards?: {
-    sender: string;
-    receiver: string;
-    originator: string;
-    treasury: string;
-  };
+  success: boolean;
+  txHash: string;
+  escrowAddress: string;
+  arbiter: string;
+}
+
+export interface UpdateEscrowStatusDto {
+  chainId: string;
+  escrow: string;
+  address: string;
+}
+
+export interface PrepareTransactionResponse {
+  to: string;
+  data: string;
+  value: string;
+  chainId: string;
+  gas: string;
+  maxFeePerGas: string;
+  maxPriorityFeePerGas: string;
+  type: string;
+  instructions: string;
+  seller?: string;
+  buyer?: string;
+  nonce?: string;
 }
 
 export interface ListEscrowsParams {
@@ -140,4 +158,34 @@ export interface ListEscrowsResponse {
   page: number;
   limit: number;
   escrows: EscrowListItem[];
+}
+
+export interface EscrowNativeCurrencyDto {
+  name: string;
+  symbol: string;
+  decimals: number;
+}
+
+export interface EscrowChainDto {
+  chainId: string;
+  name: string;
+  network: string;
+  nativeCurrency: EscrowNativeCurrencyDto;
+}
+
+export interface GetEscrowChainsResponseDto {
+  chains: EscrowChainDto[];
+}
+
+export interface EscrowAssetDto {
+  address: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  isNative: boolean;
+}
+
+export interface GetEscrowAssetsResponseDto {
+  chainId: string;
+  assets: EscrowAssetDto[];
 }
