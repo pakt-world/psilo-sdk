@@ -1,5 +1,5 @@
 {
-  "name": "@pakt/psilo-sdk",
+  "name": "@pakt/psilo",
   "version": "0.0.1",
   "description": "SDK for interacting with Pakt Psilo Escrow Contracts via MCP",
   "files": [
@@ -42,6 +42,9 @@
     "typescript": "^4.9.5",
     "typescript-transform-paths": "^3.4.6",
     "undici": "^5.29.0"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "axios": "^1.11.0",
