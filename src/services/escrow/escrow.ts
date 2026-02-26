@@ -5,12 +5,10 @@ import {
   CreateEscrowDto,
   CreateEscrowResponse,
   EscrowStatusResponse,
-  ReleaseDto,
   ReleaseResponse,
   ListEscrowsParams,
   ListEscrowsResponse,
   EscrowModuleType,
-  UpdateEscrowStatusDto,
   PrepareTransactionResponse,
   GetEscrowChainsResponseDto,
   GetEscrowAssetsResponseDto
