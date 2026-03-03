@@ -5,7 +5,7 @@ import { EscrowService } from "./escrow";
 export * from "./escrow";
 
 export interface PsiloSDKConfig {
-  baseUrl: string;
+  baseUrl?: string;
   verbose?: boolean;
 }
 
