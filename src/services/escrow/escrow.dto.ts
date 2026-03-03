@@ -3,10 +3,8 @@ import { ResponseDto } from "../../utils/response";
 export interface EscrowModuleType {
   create(data: CreateEscrowDto): Promise<ResponseDto<CreateEscrowResponse>>;
   getStatus(chainId: string, escrowAddress: string): Promise<ResponseDto<EscrowStatusResponse>>;
-  release(escrowAddress: string, data?: ReleaseDto): Promise<ResponseDto<ReleaseResponse>>;
-  updateStatus(escrowAddress: string, data: UpdateEscrowStatusDto): Promise<ResponseDto<PrepareTransactionResponse>>;
-  prepareRelease(escrowAddress: string, recipient?: string): Promise<ResponseDto<PrepareTransactionResponse>>;
-  list(params?: ListEscrowsParams): Promise<ResponseDto<ListEscrowsResponse>>;
+  release(chainId: string, escrowAddress: string, data?: ReleaseDto): Promise<ResponseDto<ReleaseResponse>>;
+  updateStatus(data: UpdateEscrowStatusDto): Promise<ResponseDto<PrepareTransactionResponse>>;
   getChains(): Promise<ResponseDto<GetEscrowChainsResponseDto>>;
   getAssets(chainId: string): Promise<ResponseDto<GetEscrowAssetsResponseDto>>;
 }
@@ -48,21 +46,6 @@ export interface CreateEscrowResponse {
       value: string;
     };
   };
-}
-
-export interface ComputeAddressParams {
-  sender: string;
-  receiver: string;
-  asset: string;
-  amount: string;
-  originator: string;
-  salt: string;
-  metadataHash?: string;
-}
-
-export interface ComputeAddressResponse {
-  predictedAddress: string;
-  exists: boolean;
 }
 
 export interface EscrowStatusResponse {
@@ -134,31 +117,6 @@ export interface PrepareTransactionResponse {
   nonce?: string;
 }
 
-export interface ListEscrowsParams {
-  sender?: string;
-  receiver?: string;
-  status?: "pending" | "deposited" | "released";
-  page?: number;
-  limit?: number;
-}
-
-export interface EscrowListItem {
-  address: string;
-  sender: string;
-  receiver: string;
-  asset: string;
-  amount: string;
-  deposited: boolean;
-  released: boolean;
-  createdAt: string;
-}
-
-export interface ListEscrowsResponse {
-  total: number;
-  page: number;
-  limit: number;
-  escrows: EscrowListItem[];
-}
 
 export interface EscrowNativeCurrencyDto {
   name: string;

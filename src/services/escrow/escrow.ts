@@ -5,9 +5,9 @@ import {
   CreateEscrowDto,
   CreateEscrowResponse,
   EscrowStatusResponse,
+  ReleaseDto,
   ReleaseResponse,
-  ListEscrowsParams,
-  ListEscrowsResponse,
+  UpdateEscrowStatusDto,
   EscrowModuleType,
   PrepareTransactionResponse,
   GetEscrowChainsResponseDto,
@@ -32,7 +32,7 @@ export class EscrowService implements EscrowModuleType {
   public async create(data: CreateEscrowDto): Promise<ResponseDto<CreateEscrowResponse>> {
     return ErrorUtils.newTryFail(async () => {
       const response = await this.connector.post<StandardResponse<CreateEscrowResponse>>("/api/escrow/create", data);
-      return response as unknown as ResponseDto<CreateEscrowResponse>; 
+      return response as unknown as ResponseDto<CreateEscrowResponse>;
     });
   }
 
@@ -44,40 +44,18 @@ export class EscrowService implements EscrowModuleType {
     });
   }
 
-  public async updateStatus(escrowAddress: string, data: { chainId: string; address: string }): Promise<ResponseDto<PrepareTransactionResponse>> {
+  public async updateStatus(data: UpdateEscrowStatusDto): Promise<ResponseDto<PrepareTransactionResponse>> {
     return ErrorUtils.newTryFail(async () => {
-      const payload = { ...data, escrow: escrowAddress };
-      const response = await this.connector.post<StandardResponse<PrepareTransactionResponse>>("/api/escrow/update", payload);
+      const response = await this.connector.post<StandardResponse<PrepareTransactionResponse>>("/api/escrow/update", data);
       return response as unknown as ResponseDto<PrepareTransactionResponse>;
     });
   }
 
-  public async prepareRelease(escrowAddress: string, recipient?: string): Promise<ResponseDto<PrepareTransactionResponse>> {
+  public async release(chainId: string, escrowAddress: string, data?: ReleaseDto): Promise<ResponseDto<ReleaseResponse>> {
     return ErrorUtils.newTryFail(async () => {
-      // Assuming a similar payload structure based on PrepareReleaseEscrowDto if the server exposed it, 
-      // but the server's Controller indicates `/release` executes directly.
-      // If there's a prepare endpoint for release we would call it here.
-      // But based on controller, `/release` is `releaseEscrow` directly.
-      // We will adjust if there's a specific prepare release endpoint or if direct release is intended.
-      const payload = recipient ? { escrowAddress, recipient } : { escrowAddress };
-      const response = await this.connector.post<StandardResponse<PrepareTransactionResponse>>("/api/escrow/prepare-release", payload);
-      return response as unknown as ResponseDto<PrepareTransactionResponse>;
-    });
-  }
-
-  public async release(escrowAddress: string, data?: { recipient?: string }): Promise<ResponseDto<ReleaseResponse>> {
-    return ErrorUtils.newTryFail(async () => {
-      const payload = { escrowAddress, ...(data || {}) };
+      const payload = { chainId, escrowAddress, ...(data || {}) };
       const response = await this.connector.post<StandardResponse<ReleaseResponse>>("/api/escrow/release", payload);
       return response as unknown as ResponseDto<ReleaseResponse>;
-    });
-  }
-
-  public async list(params?: ListEscrowsParams): Promise<ResponseDto<ListEscrowsResponse>> {
-    return ErrorUtils.newTryFail(async () => {
-      const fetchUrl = params ? parseUrlWithQuery("/api/escrows", params) : "/api/escrows";
-      const response = await this.connector.get<StandardResponse<ListEscrowsResponse>>(fetchUrl);
-      return response as unknown as ResponseDto<ListEscrowsResponse>;
     });
   }
 
