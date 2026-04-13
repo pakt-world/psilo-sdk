@@ -9,16 +9,23 @@ export interface EscrowModuleType {
   getAssets(chainId: string): Promise<ResponseDto<GetEscrowAssetsResponseDto>>;
 }
 
+export interface EscrowWebhookConfigDto {
+  webhookUrl: string;
+  webHookType: "a2a" | "json";
+}
+
 export interface CreateEscrowDto {
   chainId: string;
   buyer: string;
   seller: string;
+  creator?: string;
   title: string;
   description?: string;
   amount: string;
   asset: string;
   expiration?: string;
   releaseType?: string;
+  webhookUrls?: EscrowWebhookConfigDto;
 }
 
 export interface CreateEscrowResponse {
@@ -99,7 +106,8 @@ export interface ReleaseResponse {
 export interface UpdateEscrowStatusDto {
   chainId: string;
   escrow: string;
-  address: string;
+  address?: string;
+  webhookUrl?: string;
 }
 
 export interface PrepareTransactionResponse {
