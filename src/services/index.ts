@@ -1,8 +1,10 @@
 import { Container, Service } from "typedi";
 import { Connector } from "../connector";
 import { EscrowService } from "./escrow";
+import { AuthService } from "./auth";
 
 export * from "./escrow";
+export * from "./auth";
 
 export interface PsiloSDKConfig {
   baseUrl?: string;
@@ -11,11 +13,13 @@ export interface PsiloSDKConfig {
 
 @Service({ transient: true })
 export class PsiloSDK {
+  public readonly auth: AuthService;
   public readonly escrow: EscrowService;
   public readonly connector: Connector;
 
   constructor(id: string) {
     this.connector = Container.of(id).get(Connector);
+    this.auth = Container.of(id).get(AuthService);
     this.escrow = Container.of(id).get(EscrowService);
   }
 

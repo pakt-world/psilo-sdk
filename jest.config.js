@@ -9,4 +9,4 @@ module.exports = {
   },
   testTimeout: 30000,
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts']
-}
+};
