@@ -1,16 +1,29 @@
 {
   "name": "@pakt/psilo",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "SDK for interacting with Pakt Psilo Escrow Contracts via MCP",
   "files": [
     "./dist/main.js",
-    "./dist/main.d.ts"
+    "./dist/main.js.map",
+    "./dist/main.mjs",
+    "./dist/main.mjs.map",
+    "./dist/main.d.ts",
+    "./dist/main.d.mts"
   ],
   "exports": {
-    ".": "./dist/main.js",
-    "./main.d.ts": "./dist/main.d.ts"
+    ".": {
+      "import": {
+        "types": "./dist/main.d.mts",
+        "default": "./dist/main.mjs"
+      },
+      "require": {
+        "types": "./dist/main.d.ts",
+        "default": "./dist/main.js"
+      }
+    }
   },
   "main": "./dist/main.js",
+  "module": "./dist/main.mjs",
   "types": "./dist/main.d.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -49,7 +62,9 @@
   "dependencies": {
     "axios": "^1.11.0",
     "crypto-js": "^4.1.1",
+    "ethers": "^6.16.0",
     "reflect-metadata": "^0.1.13",
+    "socket.io-client": "^4.8.3",
     "typedi": "^0.10.0"
   }
 }

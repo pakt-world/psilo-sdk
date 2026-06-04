@@ -39,3 +39,27 @@ export interface RegisterDto {
 export interface RegisterResponse {
   [key: string]: unknown;
 }
+
+// ── Paktsuite web3 auth ────────────────────────────────────────────────────
+
+export interface PaktWeb3RequestResponse {
+  message: string;
+  tempToken: string;
+}
+
+// validate returns either a full token (onboarded user) or an onboard token (new/pending user)
+export interface PaktWeb3ValidateResponse {
+  token?: string;
+  token_type?: string;
+  expiresIn?: number;
+  isVerified?: boolean;
+  timeZone?: string | null;
+  account?: string;
+  tempToken?: string;
+}
+
+export interface PaktWeb3OnboardResponse {
+  tempToken: string;
+  isVerified: boolean;
+  timeZone: string | null;
+}
