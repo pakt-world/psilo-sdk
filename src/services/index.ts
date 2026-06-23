@@ -3,14 +3,16 @@ import { Connector } from "../connector";
 import { EscrowService } from "./escrow";
 import { AuthService } from "./auth";
 import { MessagingService } from "./messaging";
+import { JobService } from "./job";
 
 export * from "./escrow";
 export * from "./auth";
 export * from "./messaging";
+export * from "./job";
 
 const BASE_URLS = {
-  production: "https://psiloapi.kapt.xyz",
-  development: "https://devpsiloapi.kapt.xyz",
+  production: "https://devpaktworkapi.kapt.xyz",
+  development: "http://localhost:9000",
 } as const;
 
 export interface PsiloSDKConfig {
@@ -27,12 +29,14 @@ export class PsiloSDK {
   public readonly escrow: EscrowService;
   public readonly connector: Connector;
   public readonly messaging: MessagingService;
+  public readonly job: JobService;
 
   constructor(id: string) {
     this.connector = Container.of(id).get(Connector);
     this.auth = Container.of(id).get(AuthService);
     this.escrow = Container.of(id).get(EscrowService);
     this.messaging = Container.of(id).get(MessagingService);
+    this.job = Container.of(id).get(JobService);
   }
 
   /**

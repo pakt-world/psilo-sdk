@@ -65,6 +65,13 @@ export interface UserStatusEvent {
   status: "ONLINE" | "AWAY" | "OFFLINE";
 }
 
+export interface JobInviteNotification {
+  jobId: string;
+  jobTitle: string;
+  senderId: string;
+  inviteId: string;
+}
+
 // Internal wsResponse envelope returned by paktsuite socket events
 export interface WsEnvelope<T> {
   error: boolean;

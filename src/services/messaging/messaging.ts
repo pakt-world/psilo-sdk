@@ -3,6 +3,7 @@ import type {
   BroadcastMessage,
   Conversation,
   FetchedConversation,
+  JobInviteNotification,
   SendMessagePayload,
   UserStatusEvent,
   WsEnvelope,
@@ -38,6 +39,10 @@ export class MessagingService {
 
   onUserStatus(handler: (event: UserStatusEvent) => void): void {
     this.socket?.on("USER_STATUS", handler);
+  }
+
+  onJobInvite(handler: (invite: JobInviteNotification) => void): void {
+    this.socket?.on("JOB_INVITE", handler);
   }
 
   sendMessage(payload: SendMessagePayload): void {

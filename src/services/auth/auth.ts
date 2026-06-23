@@ -113,7 +113,7 @@ export class AuthService implements AuthModuleType {
     const raw = await this.connector.post<any>("/v1/auth/web3/request", { account });
     // Response shape: { message, data: { tempToken: { token, ... } } }
     return {
-      message: raw.message,
+      message: raw.data.message,
       tempToken: raw.data.tempToken.token,
     };
   }
