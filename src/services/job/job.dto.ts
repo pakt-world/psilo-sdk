@@ -17,11 +17,27 @@ export interface CreateJobDto {
   deliverables?: JobDeliverableDto[];
 }
 
-export type ConfirmTxStep = "onCreate" | "onAccept";
+export type ConfirmTxStep =
+  | "onCreate"
+  | "onAccept"
+  | "onAcceptInvite"
+  | "onMarkReady"
+  | "onReleasePayment";
 
+/**
+ * Sent to POST /v1/job/:id/confirm-tx after an external wallet signs a transaction.
+ * Used to confirm on-chain actions across the job lifecycle: escrow creation (onCreate),
+ * job acceptance (onAccept), invite acceptance (onAcceptInvite), marking a job ready for
+ * payment (onMarkReady), and releasing payment to the seller (onReleasePayment).
+ * The caller's role (buyer vs seller) is derived from their auth token — the backend
+ * validates that the signer is authorised for the given step.
+ * Provide txHash if the wallet already broadcast the transaction, or signedData if the
+ * backend should broadcast it on the caller's behalf.
+ */
 export interface ConfirmTxDto {
   step: ConfirmTxStep;
-  txHash: string;
+  txHash?: string;
+  signedData?: string;
 }
 
 export interface InviteTalentDto {
