@@ -75,6 +75,15 @@ export class Connector {
     }
   }
 
+  public async patch<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
+    try {
+      const response = await this.client.patch<T>(url, data, config);
+      return this.handleResponse<T>(response);
+    } catch (error) {
+      this.handleError(error);
+    }
+  }
+
   public async delete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
     try {
       const response = await this.client.delete<T>(url, config);
