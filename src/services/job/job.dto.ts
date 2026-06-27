@@ -21,6 +21,7 @@ export type ConfirmTxStep =
   | "onCreate"
   | "onAccept"
   | "onAcceptInvite"
+  | "onInvite"
   | "onMarkReady"
   | "onReleasePayment";
 
@@ -38,11 +39,24 @@ export interface ConfirmTxDto {
   step: ConfirmTxStep;
   txHash?: string;
   signedData?: string;
+  inviteeId?: string;
+}
+
+export interface EscrowTxPayload {
+  to: string;
+  data: string;
+  value: string;
+  chainId?: string;
+  gas?: string;
+  maxFeePerGas?: string;
+  maxPriorityFeePerGas?: string;
+  type?: string;
 }
 
 export interface InviteTalentDto {
   inviteeId: string;
 }
+
 
 export interface PrepareUpdateDto {
   address: string;
@@ -259,7 +273,7 @@ export interface JobModuleType {
   delete(id: string): Promise<ResponseDto<{ message: string }>>;
   confirmTx(id: string, dto: ConfirmTxDto): Promise<ResponseDto<JobResponse>>;
   getInvites(id: string): Promise<ResponseDto<JobInviteResponse[]>>;
-  inviteTalent(id: string, dto: InviteTalentDto): Promise<ResponseDto<JobResponse>>;
+  inviteTalent(id: string, dto: InviteTalentDto): Promise<ResponseDto<{ job?: JobResponse; invitePayload?: EscrowTxPayload }>>;
   acceptInvite(id: string, inviteId: string): Promise<ResponseDto<{ job: JobResponse; acceptPayload: any }>>;
   declineInvite(id: string, inviteId: string): Promise<ResponseDto<{ job: JobResponse }>>;
   cancelInvite(id: string, inviteeId: string): Promise<ResponseDto<{ job: JobResponse }>>;

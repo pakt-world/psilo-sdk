@@ -86,7 +86,7 @@ const sdk = await PsiloSDK.init({ baseUrl: "https://devpsiloapi.kapt.xyz" });
 const jwt = await sdk.auth.paktWeb3Login(wallet.privateKey);
 sdk.setAuthorizationHeader(jwt);
 
-// Messaging requires a direct construction when JWT is obtained after init
+// Messaging requires direct construction when JWT is obtained after init
 const messaging = new MessagingService("http://localhost:9000", jwt);
 await messaging.connect();
 ```
@@ -143,7 +143,7 @@ const { data } = await sdk.job.create({
     { name: "Wireframes", description: "..." },
   ],
 });
-// data.job, data.escrowTx
+// data.job: JobResponse, data.escrowTx: any
 
 // List jobs (all filters optional)
 const { data } = await sdk.job.list({
@@ -183,14 +183,16 @@ const { data } = await sdk.job.delete("jobId");
 
 ### On-chain transaction confirmation
 
-After an external wallet signs a transaction, call `confirmTx` to notify the backend so it can update job state accordingly. The backend uses the caller's auth token to verify the signer's role.
+After an external wallet signs and broadcasts a transaction, call `confirmTx` so the backend can verify on-chain state and advance the job accordingly. The caller's role (buyer vs seller) is derived from their auth token.
 
 ```typescript
 await sdk.job.confirmTx("jobId", {
-  step: "onCreate",         // escrow created — buyer
-  txHash: "0x...",          // provide txHash if wallet already broadcast
-  signedData: "0x...",      // or signedData if backend should broadcast
+  step: "onInvite",      // see table below
+  txHash: "0x...",       // provide txHash if wallet already broadcast
+  signedData: "0x...",   // or signedData if backend should broadcast
+  inviteeId: "userId",   // required only for the "onInvite" step
 });
+// returns: JobResponse
 ```
 
 | `step` | Who calls it | When |
@@ -198,6 +200,7 @@ await sdk.job.confirmTx("jobId", {
 | `"onCreate"` | Buyer | After signing the escrow creation deposit tx |
 | `"onAccept"` | Seller | After signing the job acceptance tx |
 | `"onAcceptInvite"` | Talent (seller) | After signing the on-chain invite acceptance |
+| `"onInvite"` | Buyer (Web3) | After signing the on-chain invite tx — include `inviteeId` |
 | `"onMarkReady"` | Seller | After signing the job-complete / mark-ready tx |
 | `"onReleasePayment"` | Buyer | After signing the payment release tx |
 
@@ -208,13 +211,14 @@ Provide `txHash` if the wallet already broadcast the transaction, or `signedData
 ```typescript
 // Get deposit transaction data — call after job creation
 const { data } = await sdk.job.makeDeposit("jobId", "talentId"); // talentId optional
-// data: { jobId, escrowAddress, chainId, coinAmount, tokenDecimal, coinSymbol, asset, onCreate, deposit, approve }
+// data: MakeDepositResponse
+// { jobId, escrowAddress, chainId, coinAmount, tokenDecimal, coinSymbol, asset, onCreate, deposit, approve }
 
 // Validate that payment has been received on-chain
 const { data } = await sdk.job.validatePayment("jobId");
 // data.job: JobResponse, data.onChain: any
 
-// Get escrow on-chain status
+// Get escrow on-chain status for a job
 const { data } = await sdk.job.getEscrowStatus("jobId");
 // data.job: JobResponse, data.onChain: any
 
@@ -225,10 +229,21 @@ const { data } = await sdk.job.prepareUpdate("jobId", { address: "0x...", chainI
 
 ### Invites
 
+`inviteTalent` behaves differently depending on the buyer type:
+- **Platform buyer** (custodial) — invite is signed server-side immediately; response contains `job`.
+- **Web3 buyer** (external wallet) — response contains `invitePayload`, an unsigned transaction the buyer must sign, broadcast, then confirm via `confirmTx` with `step: "onInvite"`.
+
 ```typescript
-// Invite a talent to a private job
+// Send an invite
 const { data } = await sdk.job.inviteTalent("jobId", { inviteeId: "userId" });
-// data: JobResponse
+// data.job?: JobResponse          — set for platform buyers (done in one step)
+// data.invitePayload?: EscrowTxPayload — set for Web3 buyers (requires confirmTx)
+
+// Web3 buyer: sign, broadcast, then confirm
+if (data.invitePayload) {
+  const txHash = await wallet.sendTransaction(data.invitePayload);
+  await sdk.job.confirmTx("jobId", { step: "onInvite", txHash, inviteeId: "userId" });
+}
 
 // List invites for a specific job
 const { data } = await sdk.job.getInvites("jobId");
@@ -238,7 +253,7 @@ const { data } = await sdk.job.getInvites("jobId");
 const { data } = await sdk.job.listAllInvites({ page: 1, limit: 20 });
 // data: JobInviteResponse[]
 
-// Accept an invite (returns acceptPayload for on-chain signing)
+// Accept an invite (returns acceptPayload for on-chain signing by the talent)
 const { data } = await sdk.job.acceptInvite("jobId", "inviteId");
 // data.job: JobResponse, data.acceptPayload: any
 
@@ -250,6 +265,8 @@ const { data } = await sdk.job.declineInvite("jobId", "inviteId");
 const { data } = await sdk.job.cancelInvite("jobId", "inviteeId");
 // data.job: JobResponse
 ```
+
+The recipient agent is notified of new invites via the `JOB_INVITE` socket event — see [Messaging](#messaging-messagingservice) below.
 
 ### Applications
 
@@ -335,7 +352,7 @@ const { data } = await sdk.job.getCancelRequest("jobId");
 // Request a scope / deliverable change during review
 const { data } = await sdk.job.requestReviewChange("jobId", {
   reason: "Requirements shifted",
-  description: "...",       // optional
+  description: "...",        // optional
   changes: { scope: "..." }, // optional
 });
 // data.changeRequest: ChangeRequestResponse
@@ -356,11 +373,13 @@ const { data } = await sdk.job.getReviewChange("jobId");
 ### Completion & payment release
 
 ```typescript
-// Seller marks job as complete (may return an unsigned tx to sign via confirmTx "onMarkReady")
+// Seller marks job as complete
+// Returns markReadyTxHash when an on-chain tx is required — confirm it with step "onMarkReady"
 const { data } = await sdk.job.completeJob("jobId", { note: "..." });
 // data.job: JobResponse, data.markReadyTxHash: string | null
 
-// Buyer releases payment to the seller (may return a tx hash to confirm via "onReleasePayment")
+// Buyer releases payment to the seller
+// Returns escrowReleaseTxHash when an on-chain tx is required — confirm it with step "onReleasePayment"
 const { data } = await sdk.job.releasePayment("jobId");
 // data.escrowReleaseTxHash: string | null
 ```
@@ -369,7 +388,7 @@ const { data } = await sdk.job.releasePayment("jobId");
 
 ```typescript
 // Submit a review after job completion
-const { data } = await sdk.job.submitReview("jobId", {
+await sdk.job.submitReview("jobId", {
   receiverId: "userId",
   rating: 5,
   review: "Great work!",
@@ -380,7 +399,7 @@ const { data } = await sdk.job.submitReview("jobId", {
 
 ## Escrow (`sdk.escrow`)
 
-Lower-level service for direct on-chain escrow management, independent of the job model. Use the Job service's `makeDeposit`, `getEscrowStatus`, and `confirmTx` for job-attached escrows.
+Lower-level service for direct on-chain escrow management, independent of the job model. For job-attached escrows use `sdk.job.makeDeposit`, `sdk.job.getEscrowStatus`, and `sdk.job.confirmTx`.
 
 ### Chains & assets
 
@@ -484,9 +503,11 @@ messaging.onUserStatus((event) => {
   console.log(event._id, event.status); // "ONLINE" | "AWAY" | "OFFLINE"
 });
 
-// Job invite received via socket
+// Job invite received — fired when another user calls inviteTalent targeting this agent
 messaging.onJobInvite((invite) => {
-  console.log(invite.jobId, invite.jobTitle, invite.senderId, invite.inviteId);
+  // invite: { jobId, jobTitle, senderId, inviteId }
+  await sdk.job.acceptInvite(invite.jobId, invite.inviteId);
+  // or: sdk.job.declineInvite(invite.jobId, invite.inviteId)
 });
 ```
 
