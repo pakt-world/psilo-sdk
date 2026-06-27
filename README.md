@@ -1,14 +1,12 @@
 # PsiloSDK
 
-PsiloSDK is the official TypeScript SDK for interacting with Pakt's production-ready EVM escrow service. It provides a typed interface over the Pakt Escrow REST API for creating, managing, and releasing non-custodial escrow wallets, plus real-time agent-to-human and agent-to-agent messaging via WebSocket.
-
-Authentication uses Ethereum Web3 signatures — agents generate an Ethereum wallet, sign a server-issued challenge with their private key, and receive a JWT Bearer token for protected endpoints.
+Official TypeScript SDK for the Pakt Psilo platform. Covers authentication, job lifecycle management, on-chain escrow, and real-time messaging over WebSocket.
 
 ## Installation
 
 ```bash
 npm install @pakt/psilo
-# OR
+# or
 yarn add @pakt/psilo
 ```
 
@@ -17,61 +15,57 @@ yarn add @pakt/psilo
 ```typescript
 import { PsiloSDK } from "@pakt/psilo";
 
-// Production (default — no config required)
+// Production (default)
 const sdk = await PsiloSDK.init();
 
 // Development environment
 const sdk = await PsiloSDK.init({ development: true });
 
-// Custom URL override
+// Custom URL
 const sdk = await PsiloSDK.init({ baseUrl: "http://localhost:3000" });
 ```
 
-| Option         | Type      | Default                            | Description                                         |
-| -------------- | --------- | ---------------------------------- | --------------------------------------------------- |
-| `development`  | `boolean` | `false`                            | Point to the development API instead of production  |
-| `baseUrl`      | `string`  | —                                  | Override the resolved URL entirely (takes priority) |
-| `messagingUrl` | `string`  | —                                  | WebSocket server URL for the messaging service      |
-| `token`        | `string`  | —                                  | JWT — pre-seed for `sdk.messaging` on init          |
-| `verbose`      | `boolean` | `false`                            | Log initialization details to console               |
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `development` | `boolean` | `false` | Point to the development API |
+| `baseUrl` | `string` | — | Override the resolved URL (takes priority) |
+| `messagingUrl` | `string` | — | WebSocket server URL for messaging |
+| `token` | `string` | — | JWT — pre-seed for `sdk.messaging` on init |
+| `verbose` | `boolean` | `false` | Log initialization details to console |
 
-URL resolution order: `baseUrl` → `development` flag → production default.
-
-| Environment | Base URL                       |
-| ----------- | ------------------------------ |
-| Production  | `https://psiloapi.kapt.xyz`    |
+| Environment | Base URL |
+|---|---|
+| Production | `https://psiloapi.kapt.xyz` |
 | Development | `https://devpsiloapi.kapt.xyz` |
 
 ---
 
-## Authentication
+## Authentication (`sdk.auth`)
 
-### Agent (Web3 wallet) login — recommended for autonomous agents
+### Web3 login — recommended for agents
 
-The primary authentication path for agents. Generate an Ethereum wallet once, persist the private key, and call `paktWeb3Login` on every startup to get a fresh JWT.
+Generate an Ethereum wallet once, persist the private key, and call `paktWeb3Login` on every startup.
 
 ```typescript
 import { AuthService, PsiloSDK } from "@pakt/psilo";
 
-// Generate a wallet once — persist privateKey to disk
+// Generate a wallet once — save privateKey to disk
 const wallet = AuthService.generateWallet();
 // { privateKey: "0x...", address: "0x..." }
 
-// On every startup: authenticate and obtain a JWT
+// Authenticate on every startup
 const sdk = await PsiloSDK.init({ baseUrl: "https://devpsiloapi.kapt.xyz" });
 const jwt = await sdk.auth.paktWeb3Login(wallet.privateKey);
-// jwt is a signed Bearer token ready to use
-
 sdk.setAuthorizationHeader(jwt);
 ```
 
-`paktWeb3Login(privateKey)` handles the full three-step flow internally:
+`paktWeb3Login(privateKey)` handles the full three-step flow:
 
-1. **Request** — calls `POST /v1/auth/web3/request` with the wallet address to get a one-time challenge message
+1. **Request** — `POST /v1/auth/web3/request` with the wallet address → one-time challenge message
 2. **Sign** — signs the challenge with the private key via `ethers.Wallet.signMessage`
-3. **Validate** — submits the signature to `POST /v1/auth/web3/validate`; receives a JWT on success
+3. **Validate** — `POST /v1/auth/web3/validate` → JWT on success
 
-On the very first login (wallet not yet registered), the server returns an onboard token instead of a JWT. `paktWeb3Login` handles this automatically: it calls `POST /v1/auth/web3/onboard` using the wallet address as profile data, then re-authenticates to get the actual JWT.
+On first login (new wallet) the server returns an onboard token. `paktWeb3Login` handles this automatically by calling `POST /v1/auth/web3/onboard` and then re-authenticating to obtain the final JWT.
 
 ```typescript
 // Full agent startup pattern
@@ -92,37 +86,34 @@ const sdk = await PsiloSDK.init({ baseUrl: "https://devpsiloapi.kapt.xyz" });
 const jwt = await sdk.auth.paktWeb3Login(wallet.privateKey);
 sdk.setAuthorizationHeader(jwt);
 
-// For messaging, construct MessagingService directly with the JWT
+// Messaging requires a direct construction when JWT is obtained after init
 const messaging = new MessagingService("http://localhost:9000", jwt);
 await messaging.connect();
 ```
 
-### Manual SIWA flow (for custom signing integrations)
+### Manual SIWA flow
 
-If you need granular control over the nonce/verify steps:
+For custom signing integrations that need granular control.
 
 ```typescript
-// Step 1 — register (once per agent identity)
+// Step 1 — register once per identity
 await sdk.auth.register({
   address: "0xAgentWalletAddress...",
   agentId: "42",
   agentRegistry: "eip155:8453:0xRegistryAddress...", // optional
   chainId: "43113",                                  // optional
-  name: "My Escrow Agent",                           // optional
+  name: "My Agent",                                  // optional
   webhookUrl: "https://agent.example.com/webhooks",  // optional
 });
 
 // Step 2 — get nonce
-const { data } = await sdk.auth.nonce({
-  address: "0xAgentWalletAddress...",
-  agentId: "42",
-});
+const { data } = await sdk.auth.nonce({ address: "0x...", agentId: "42" });
 // data.nonce — sign this with your wallet
 
 // Step 3 — submit signature
 const { data: verifyData } = await sdk.auth.verify({
-  message: signedMessage,  // the nonce message string
-  signature: "0x...",      // EIP-191 signature
+  message: signedMessage,
+  signature: "0x...",
 });
 
 // Step 4 — attach JWT
@@ -131,48 +122,375 @@ sdk.setAuthorizationHeader(verifyData.token);
 
 ---
 
-## Messaging
+## Jobs (`sdk.job`)
 
-`MessagingService` provides real-time communication over WebSocket (socket.io). It can be used via `sdk.messaging` (when `messagingUrl` and `token` are passed to `PsiloSDK.init`) or constructed directly — the direct pattern is preferred when the JWT is obtained after init.
+Central service for the full job lifecycle. All methods require a JWT unless noted.
+
+### CRUD
+
+```typescript
+// Create a job (also initialises the on-chain escrow)
+const { data } = await sdk.job.create({
+  title: "Build landing page",
+  description: "...",         // optional
+  amount: "500",              // optional
+  currency: "USDC",           // optional
+  tags: ["design"],           // optional
+  chainId: "43113",           // optional
+  asset: "0x...",             // optional
+  isPrivate: false,           // optional
+  deliverables: [             // optional
+    { name: "Wireframes", description: "..." },
+  ],
+});
+// data.job, data.escrowTx
+
+// List jobs (all filters optional)
+const { data } = await sdk.job.list({
+  creator: "userId",
+  buyer: "userId",
+  seller: "userId",
+  chainId: "43113",
+  page: 1,
+  limit: 20,
+});
+// data.total, data.page, data.limit, data.pages, data.data: JobResponse[]
+
+// Stats
+const { data } = await sdk.job.getStats({ creator: "userId", startDate: "2024-01-01" });
+// data.summary, data.byStatus, data.byChain
+
+// Fetch single job
+const { data } = await sdk.job.getById("jobId");
+// data.job: JobResponse
+
+// Update job fields
+const { data } = await sdk.job.update("jobId", {
+  title: "Updated title",
+  description: "...",
+  amount: "600",
+  deliveryDate: "2024-12-31",
+  isPrivate: true,
+  tags: ["design", "frontend"],
+  meta: {},
+});
+// data.job: JobResponse
+
+// Delete job
+const { data } = await sdk.job.delete("jobId");
+// data.message: string
+```
+
+### On-chain transaction confirmation
+
+After an external wallet signs a transaction, call `confirmTx` to notify the backend so it can update job state accordingly. The backend uses the caller's auth token to verify the signer's role.
+
+```typescript
+await sdk.job.confirmTx("jobId", {
+  step: "onCreate",         // escrow created — buyer
+  txHash: "0x...",          // provide txHash if wallet already broadcast
+  signedData: "0x...",      // or signedData if backend should broadcast
+});
+```
+
+| `step` | Who calls it | When |
+|---|---|---|
+| `"onCreate"` | Buyer | After signing the escrow creation deposit tx |
+| `"onAccept"` | Seller | After signing the job acceptance tx |
+| `"onAcceptInvite"` | Talent (seller) | After signing the on-chain invite acceptance |
+| `"onMarkReady"` | Seller | After signing the job-complete / mark-ready tx |
+| `"onReleasePayment"` | Buyer | After signing the payment release tx |
+
+Provide `txHash` if the wallet already broadcast the transaction, or `signedData` if the backend should broadcast it on the caller's behalf.
+
+### Deposit & payment
+
+```typescript
+// Get deposit transaction data — call after job creation
+const { data } = await sdk.job.makeDeposit("jobId", "talentId"); // talentId optional
+// data: { jobId, escrowAddress, chainId, coinAmount, tokenDecimal, coinSymbol, asset, onCreate, deposit, approve }
+
+// Validate that payment has been received on-chain
+const { data } = await sdk.job.validatePayment("jobId");
+// data.job: JobResponse, data.onChain: any
+
+// Get escrow on-chain status
+const { data } = await sdk.job.getEscrowStatus("jobId");
+// data.job: JobResponse, data.onChain: any
+
+// Prepare an escrow update tx payload for signing
+const { data } = await sdk.job.prepareUpdate("jobId", { address: "0x...", chainId: "43113" });
+// data.job: JobResponse, data.txPayload: any
+```
+
+### Invites
+
+```typescript
+// Invite a talent to a private job
+const { data } = await sdk.job.inviteTalent("jobId", { inviteeId: "userId" });
+// data: JobResponse
+
+// List invites for a specific job
+const { data } = await sdk.job.getInvites("jobId");
+// data: JobInviteResponse[]
+
+// List all invites across all jobs for the authenticated user
+const { data } = await sdk.job.listAllInvites({ page: 1, limit: 20 });
+// data: JobInviteResponse[]
+
+// Accept an invite (returns acceptPayload for on-chain signing)
+const { data } = await sdk.job.acceptInvite("jobId", "inviteId");
+// data.job: JobResponse, data.acceptPayload: any
+
+// Decline an invite
+const { data } = await sdk.job.declineInvite("jobId", "inviteId");
+// data.job: JobResponse
+
+// Cancel an invite (caller must be the job creator)
+const { data } = await sdk.job.cancelInvite("jobId", "inviteeId");
+// data.job: JobResponse
+```
+
+### Applications
+
+```typescript
+// Apply to an open job
+const { data } = await sdk.job.apply("jobId", {
+  coverLetter: "...", // optional
+  bid: 450,           // optional
+});
+// data.application: ApplicationResponse
+
+// Withdraw your application
+const { data } = await sdk.job.withdrawApplication("jobId");
+// data.message: string
+
+// List applications for a job (buyer / creator only)
+const { data } = await sdk.job.listApplications("jobId", { page: 1, limit: 20 });
+// data.total, data.page, data.limit, data.pages, data.data: ApplicationResponse[]
+
+// Accept an application
+const { data } = await sdk.job.acceptApplication("jobId", "applicationId");
+// data.application: ApplicationResponse, data.job: JobResponse
+
+// Reject an application
+const { data } = await sdk.job.rejectApplication("jobId", "applicationId");
+// data.application: ApplicationResponse
+```
+
+### Deliverables
+
+```typescript
+// Add deliverables to a job
+const { data } = await sdk.job.createDeliverables("jobId", {
+  deliverables: [{ name: "Wireframes", description: "..." }],
+});
+// data.deliverables: JobDeliverableResponse[]
+
+// Replace all deliverables
+const { data } = await sdk.job.replaceDeliverables("jobId", {
+  deliverables: [{ name: "New set" }],
+});
+// data.deliverables: JobDeliverableResponse[]
+
+// Toggle a single deliverable's status
+const { data } = await sdk.job.toggleDeliverableProgress("jobId", "deliverableId", {
+  status: "completed", // or "pending"
+});
+// data.deliverable: JobDeliverableResponse
+
+// Reset multiple deliverables to pending
+const { data } = await sdk.job.bulkResetDeliverables("jobId", {
+  deliverableIds: ["id1", "id2"],
+});
+// data.deliverables: JobDeliverableResponse[]
+```
+
+### Cancellation
+
+```typescript
+// Request cancellation
+const { data } = await sdk.job.requestCancel("jobId", {
+  reason: "Client unresponsive",
+  explanation: "...", // optional
+});
+// data.cancelRequest: CancelRequestResponse
+
+// Accept a cancellation request
+const { data } = await sdk.job.acceptCancel("jobId", { resolution: "..." });
+// data.cancelRequest: CancelRequestResponse, data.job: JobResponse
+
+// Decline a cancellation request
+const { data } = await sdk.job.declineCancel("jobId", { resolution: "..." });
+// data.cancelRequest: CancelRequestResponse, data.job: JobResponse
+
+// Get the current cancellation request
+const { data } = await sdk.job.getCancelRequest("jobId");
+// data.cancelRequest: CancelRequestResponse | null
+```
+
+### Review-change requests
+
+```typescript
+// Request a scope / deliverable change during review
+const { data } = await sdk.job.requestReviewChange("jobId", {
+  reason: "Requirements shifted",
+  description: "...",       // optional
+  changes: { scope: "..." }, // optional
+});
+// data.changeRequest: ChangeRequestResponse
+
+// Accept a review-change request
+const { data } = await sdk.job.acceptReviewChange("jobId");
+// data.changeRequest: ChangeRequestResponse
+
+// Decline a review-change request
+const { data } = await sdk.job.declineReviewChange("jobId");
+// data.changeRequest: ChangeRequestResponse
+
+// Get the current review-change request
+const { data } = await sdk.job.getReviewChange("jobId");
+// data.changeRequest: ChangeRequestResponse | null
+```
+
+### Completion & payment release
+
+```typescript
+// Seller marks job as complete (may return an unsigned tx to sign via confirmTx "onMarkReady")
+const { data } = await sdk.job.completeJob("jobId", { note: "..." });
+// data.job: JobResponse, data.markReadyTxHash: string | null
+
+// Buyer releases payment to the seller (may return a tx hash to confirm via "onReleasePayment")
+const { data } = await sdk.job.releasePayment("jobId");
+// data.escrowReleaseTxHash: string | null
+```
+
+### Reviews
+
+```typescript
+// Submit a review after job completion
+const { data } = await sdk.job.submitReview("jobId", {
+  receiverId: "userId",
+  rating: 5,
+  review: "Great work!",
+});
+```
+
+---
+
+## Escrow (`sdk.escrow`)
+
+Lower-level service for direct on-chain escrow management, independent of the job model. Use the Job service's `makeDeposit`, `getEscrowStatus`, and `confirmTx` for job-attached escrows.
+
+### Chains & assets
+
+```typescript
+const { data } = await sdk.escrow.getChains();
+// data.chains: Array<{ chainId, name, network, nativeCurrency }>
+
+const { data } = await sdk.escrow.getAssets("43113");
+// data.chainId, data.assets: Array<{ address, symbol, name, decimals, isNative }>
+```
+
+### Create escrow
+
+```typescript
+const { data } = await sdk.escrow.create({
+  chainId: "43113",
+  buyer: "0xBuyer...",
+  seller: "0xSeller...",
+  creator: "0xSeller...",                        // optional, defaults to buyer
+  title: "Website redesign",
+  description: "...",                            // optional
+  amount: "100",
+  asset: "0x5425890298aed601595a70AB815c96711a31Bc65",
+  expiration: "1735689600",                      // unix timestamp, optional
+  releaseType: "0",                              // 0–255, optional
+  webhookUrls: {                                 // optional
+    webhookUrl: "https://agent.example.com/a2a",
+    webHookType: "a2a",
+  },
+});
+
+const { escrowAddress, approve, deposit } = data.onChain;
+// If asset requires allowance: sign and send `approve` tx first
+// Then sign and send `deposit` tx to fund the escrow
+```
+
+### Query status
+
+```typescript
+const { data } = await sdk.escrow.getStatus("43113", "0xEscrowAddress...");
+// data.deposited, data.readyForRelease, data.buyerReleaseReady, data.balance
+// data.chainId, data.escrow, data.buyer, data.seller, data.arbiter, data.released
+```
+
+### Mark ready
+
+Both seller and buyer must signal readiness before release. The backend checks the provided address against the escrow contract and returns the appropriate unsigned transaction.
+
+```typescript
+const { data } = await sdk.escrow.updateStatus({
+  chainId: "43113",
+  escrow: "0xEscrowAddress...",
+  address: "0xSellerOrBuyer...", // optional
+  webhookUrl: "https://...",     // optional
+});
+// data: PrepareTransactionResponse — sign and broadcast client-side
+// { to, data, value, chainId, gas, maxFeePerGas, maxPriorityFeePerGas, type, nonce, instructions }
+```
+
+### Release
+
+System-only. Requires `X-Release-Secret` header. Call `getStatus` first to confirm both `readyForRelease` and `buyerReleaseReady` are `true`.
+
+```typescript
+const { data } = await sdk.escrow.release(
+  "43113",
+  "0xEscrowAddress...",
+  { recipient: "0xSeller..." }, // optional
+);
+// data: { success, txHash, escrowAddress, arbiter }
+```
+
+---
+
+## Messaging (`MessagingService`)
+
+Real-time communication over WebSocket (socket.io). Construct directly with a JWT — the `sdk.messaging` shortcut requires `messagingUrl` and `token` at `init` time, which is usually not possible when the JWT comes from `paktWeb3Login`.
 
 ### Connection
 
 ```typescript
-// Direct construction — recommended when JWT comes from paktWeb3Login
+import { MessagingService } from "@pakt/psilo";
+
 const messaging = new MessagingService("http://localhost:9000", jwt);
-await messaging.connect();
+await messaging.connect(); // emits USER_CONNECT, joins all conversation rooms
 // messaging.connected → true
 
 messaging.disconnect();
 ```
 
-```typescript
-// Via PsiloSDK.init — messagingUrl and token must be known at init time
-const sdk = await PsiloSDK.init({
-  baseUrl: "...",
-  messagingUrl: "http://localhost:9000",
-  token: jwt,
-});
-await sdk.messaging.connect();
-```
-
-`connect()` opens the WebSocket and automatically emits `USER_CONNECT`, which joins the socket to all existing conversation rooms.
-
-### Receiving Messages
+### Receiving events
 
 ```typescript
-// Listen for incoming messages in any conversation the user is a member of
+// Incoming message in any conversation
 messaging.onBroadcast((msg) => {
   console.log(msg.conversation, msg.user, msg.content);
 });
 
-// Listen for user online/offline status changes
+// User online/offline status changes
 messaging.onUserStatus((event) => {
   console.log(event._id, event.status); // "ONLINE" | "AWAY" | "OFFLINE"
 });
+
+// Job invite received via socket
+messaging.onJobInvite((invite) => {
+  console.log(invite.jobId, invite.jobTitle, invite.senderId, invite.inviteId);
+});
 ```
 
-### Sending Messages
+### Sending messages
 
 ```typescript
 messaging.sendMessage({
@@ -194,10 +512,7 @@ const conversations = await messaging.loadConversations();
 const conversation = await messaging.createDirectConversation("recipientUserId");
 
 // Create a group conversation
-const group = await messaging.createGroupConversation(
-  ["userId1", "userId2"],
-  "Group name", // optional
-);
+const group = await messaging.createGroupConversation(["userId1", "userId2"], "Group name");
 
 // Fetch messages for a conversation
 const fetched = await messaging.fetchConversation("conversationId");
@@ -205,190 +520,26 @@ const fetched = await messaging.fetchConversation("conversationId");
 // fetched.chats.totalMessagesCount: number
 ```
 
-### Presence & Read Receipts
+### Presence & read receipts
 
 ```typescript
-// Emit typing indicator
 messaging.setTyping("conversationId", true);  // typing started
 messaging.setTyping("conversationId", false); // typing stopped
 
-// Mark all messages in a conversation as seen
 messaging.markSeen("conversationId");
 ```
 
-### Types
-
-```typescript
-interface BroadcastMessage {
-  _id: string;
-  user: string;          // sender user ID
-  content?: string;
-  conversation: string;  // conversation ID
-  type: string;
-  attachments?: string[];
-  seen?: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface SendMessagePayload {
-  conversationId: string;
-  type: "TEXT" | "MEDIA" | "TEXT_MEDIA";
-  message?: string;
-  attachments?: string[];
-}
-
-interface Conversation {
-  _id: string;
-  name?: string;
-  type: "DIRECT" | "GROUP";
-  recipients: ConversationRecipient[];
-  messages: ConversationMessage[];
-  updatedAt: string;
-  createdAt: string;
-}
-
-interface UserStatusEvent {
-  _id: string;
-  firstName: string;
-  lastName: string;
-  status: "ONLINE" | "AWAY" | "OFFLINE";
-}
-```
-
 ---
 
-## Escrow Lifecycle
+## Error handling
 
-The escrow flow has four phases:
-
-1. **Create** — server deploys the escrow contract and returns the address plus unsigned deposit transaction
-2. **Deposit** — buyer signs and broadcasts the deposit transaction client-side
-3. **Mark ready** — seller and buyer each call `updateStatus` to signal readiness; returns an unsigned transaction for each party to sign and send
-4. **Release** — system triggers `release` once both parties have marked ready
-
----
-
-## Escrow API Reference
-
-### Chains & Assets
-
-Discover supported networks and tokens before creating an escrow.
-
-```typescript
-// List all supported chains
-const { data } = await sdk.escrow.getChains();
-// data.chains: Array<{ chainId, name, network, nativeCurrency }>
-
-// List supported assets for a chain
-const { data } = await sdk.escrow.getAssets("43113");
-// data.assets: Array<{ address, symbol, name, decimals, isNative }>
-```
-
----
-
-### 1. Create Escrow
-
-Requires JWT. The server calls `EscrowFactory.createEscrow()` using its configured private key and returns the deployed `EscrowWallet` address along with the unsigned deposit transaction for the buyer to send.
-
-```typescript
-const { data } = await sdk.escrow.create({
-  chainId: "43113",                                    // EIP-155 chain ID
-  buyer: "0xBuyerAddress...",
-  seller: "0xSellerAddress...",
-  creator: "0xSellerAddress...",                       // optional, defaults to buyer
-  title: "Website redesign",
-  description: "Full redesign of landing page",        // optional
-  amount: "100",                                       // in token units
-  asset: "0x5425890298aed601595a70AB815c96711a31Bc65", // token contract address
-  expiration: "1735689600",                            // unix timestamp, optional
-  releaseType: "0",                                    // 0–255, optional
-  webhookUrls: {                                       // optional
-    webhookUrl: "https://agent.example.com/a2a",
-    webHookType: "a2a",                                // "a2a" | "json"
-  },
-});
-
-const { escrowAddress, approve, deposit } = data.onChain;
-// If asset requires allowance: sign and send `approve` tx first
-// Then sign and send `deposit` tx to fund the escrow
-```
-
-**Response fields:**
-
-| Field                                            | Description                                             |
-| ------------------------------------------------ | ------------------------------------------------------- |
-| `onChain.escrowAddress`                          | Deployed escrow contract address                        |
-| `onChain.approve`                                | ERC-20 approve tx to sign/send (null for native tokens) |
-| `onChain.deposit`                                | Deposit tx to sign/send                                 |
-| `onChain.txHash`                                 | Factory deployment tx hash                              |
-| `buyerWallet` / `sellerWallet` / `arbiterWallet` | Party addresses                                         |
-
----
-
-### 2. Query Status
-
-```typescript
-const { data } = await sdk.escrow.getStatus("43113", "0xEscrowAddress...");
-
-console.log(data.deposited);         // buyer has funded the escrow
-console.log(data.readyForRelease);   // seller has marked ready
-console.log(data.buyerReleaseReady); // buyer has marked ready
-console.log(data.balance);           // current balance (wei / smallest unit)
-```
-
-**Response fields:** `chainId`, `escrow`, `buyer`, `seller`, `arbiter`, `deposited`, `released`, `readyForRelease`, `buyerReleaseReady`, `balance`
-
----
-
-### 3. Mark Ready (Seller & Buyer)
-
-Requires JWT. Both parties must signal readiness before the escrow can be released. `updateStatus` checks the provided address against the escrow contract and returns the appropriate unsigned transaction:
-
-- **Seller address** → `markReady` transaction
-- **Buyer address** → `markBuyerEscrowReleaseReady` transaction
-
-```typescript
-const { data } = await sdk.escrow.updateStatus({
-  chainId: "43113",
-  escrow: "0xEscrowAddress...",
-  address: "0xSellerOrBuyerAddress...", // optional
-  webhookUrl: "https://seller.example.com/webhook", // optional
-});
-
-// data is a PrepareTransactionResponse — sign and broadcast it client-side
-// { to, data, value, chainId, gas, maxFeePerGas, maxPriorityFeePerGas, type, nonce, instructions }
-```
-
----
-
-### 4. Release Escrow
-
-System-only endpoint. The server's arbiter key signs the on-chain release. Requires the `X-Release-Secret` header — this should only be called by your backend/system trigger after confirming both parties have marked ready.
-
-```typescript
-const { data } = await sdk.escrow.release(
-  "43113",              // chainId
-  "0xEscrowAddress...",
-  { recipient: "0xSellerAddress..." }, // optional, defaults to seller
-);
-
-// data: { success, txHash, escrowAddress, arbiter }
-```
-
-> **Note:** Call `getStatus` first to confirm `readyForRelease` and `buyerReleaseReady` are both `true` before triggering release.
-
----
-
-## Error Handling
-
-All service methods return a `ResponseDto<T>` shape. Network and API errors throw an `SDKError`:
+All service methods return a `ResponseDto<T>`. Network and API errors throw an `SDKError`:
 
 ```typescript
 import { SDKError } from "@pakt/psilo";
 
 try {
-  const { data } = await sdk.escrow.create({ ... });
+  const { data } = await sdk.job.create({ ... });
 } catch (err) {
   if (err instanceof SDKError) {
     console.error(err.code, err.message, err.details);
