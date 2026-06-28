@@ -6,6 +6,7 @@ import {
   CreateJobDto,
   ConfirmTxDto,
   InviteTalentDto,
+  EscrowTxPayload,
   PrepareUpdateDto,
   ListJobsQuery,
   GetStatsQuery,
@@ -100,10 +101,15 @@ export class JobService implements JobModuleType {
     });
   }
 
-  public async inviteTalent(id: string, dto: InviteTalentDto): Promise<ResponseDto<JobResponse>> {
+  public async inviteTalent(
+    id: string,
+    dto: InviteTalentDto
+  ): Promise<ResponseDto<{ job?: JobResponse; invitePayload?: EscrowTxPayload }>> {
     return ErrorUtils.newTryFail(async () => {
-      const response = await this.connector.post<StandardResponse<JobResponse>>(`/v1/job/${id}/invite`, dto);
-      return response as unknown as ResponseDto<JobResponse>;
+      const response = await this.connector.post<
+        StandardResponse<{ job?: JobResponse; invitePayload?: EscrowTxPayload }>
+      >(`/v1/job/${id}/invite`, dto);
+      return response as unknown as ResponseDto<{ job?: JobResponse; invitePayload?: EscrowTxPayload }>;
     });
   }
 
