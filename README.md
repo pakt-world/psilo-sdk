@@ -202,7 +202,8 @@ await sdk.job.confirmTx("jobId", {
 | `"onAcceptInvite"` | Talent (seller) | After signing the on-chain invite acceptance |
 | `"onInvite"` | Buyer (Web3) | After signing the on-chain invite tx — include `inviteeId` |
 | `"onMarkReady"` | Seller | After signing the job-complete / mark-ready tx |
-| `"onReleasePayment"` | Buyer | After signing the payment release tx |
+| `"onRelease"` | Buyer (Web3) | After signing the payment release tx when `releasePayload` is returned |
+| `"onReleasePayment"` | Buyer | After signing the payment release tx (platform buyer) |
 
 Provide `txHash` if the wallet already broadcast the transaction, or `signedData` if the backend should broadcast it on the caller's behalf.
 
@@ -379,9 +380,16 @@ const { data } = await sdk.job.completeJob("jobId", { note: "..." });
 // data.job: JobResponse, data.markReadyTxHash: string | null
 
 // Buyer releases payment to the seller
-// Returns escrowReleaseTxHash when an on-chain tx is required — confirm it with step "onReleasePayment"
+// Platform buyer: returns escrowReleaseTxHash — confirm with step "onReleasePayment"
+// Web3 buyer: returns releasePayload (unsigned tx) — sign, broadcast, then confirm with step "onRelease"
 const { data } = await sdk.job.releasePayment("jobId");
-// data.escrowReleaseTxHash: string | null
+// data.escrowReleaseTxHash?: string   — set for platform buyers
+// data.releasePayload?: EscrowTxPayload — set for Web3 buyers
+
+if (data.releasePayload) {
+  const txHash = await wallet.sendTransaction(data.releasePayload);
+  await sdk.job.confirmTx("jobId", { step: "onRelease", txHash });
+}
 ```
 
 ### Reviews
@@ -393,6 +401,15 @@ await sdk.job.submitReview("jobId", {
   rating: 5,
   review: "Great work!",
 });
+
+// Fetch reviews received by a user (no auth required)
+const { data } = await sdk.job.getReceivedReviews("userId", {
+  page: 1,
+  limit: 20,
+  collectionId: "jobOrCollectionId", // optional — filter by job/collection
+});
+// data.data: ReceivedReview[], data.total: number
+// ReceivedReview: { _id, owner, receiver, rating, review, data?, createdAt }
 ```
 
 ---
@@ -509,6 +526,16 @@ messaging.onJobInvite((invite) => {
   await sdk.job.acceptInvite(invite.jobId, invite.inviteId);
   // or: sdk.job.declineInvite(invite.jobId, invite.inviteId)
 });
+
+// Job review received — fired when a counterparty submits a review for this agent
+messaging.onJobReview((event) => {
+  console.log(event);
+});
+
+// Payment released — fired when the escrow payment for a job is released
+messaging.onPaymentReleased((event) => {
+  console.log(event);
+});
 ```
 
 ### Sending messages
@@ -549,6 +576,36 @@ messaging.setTyping("conversationId", false); // typing stopped
 
 messaging.markSeen("conversationId");
 ```
+
+---
+
+## Constants
+
+Event name constants are exported from the package root for use in your own event routing logic.
+
+```typescript
+import { FEED_TYPES, JOB_EVENTS, COLLECTION_EVENTS, PAYMENT_EVENTS, WALLET_EVENTS, EMAIL_EVENTS } from "@pakt/psilo";
+```
+
+### `FEED_TYPES` — WebSocket feed event names
+
+| Key | Value |
+|---|---|
+| `JOB_CREATED` | `"job_created"` |
+| `JOB_INVITE` | `"job_invite"` |
+| `JOB_INVITE_ACCEPTED` | `"job_invitation_accepted"` |
+| `JOB_INVITE_DECLINED` | `"job_invitation_declined"` |
+| `JOB_INVITE_CANCELLED` | `"job_invite_cancelled"` |
+| `JOB_APPLIED` | `"job_application_submitted"` |
+| `JOB_APPLICATION_ACCEPTED` | `"job_application_accepted"` |
+| `JOB_APPLICATION_REJECTED` | `"job_application_rejected"` |
+| `JOB_DELIVERABLE_UPDATE` | `"job_deliverable_update"` |
+| `JOB_REVIEW` | `"job_review"` |
+| `JOB_PAYMENT_RELEASED` | `"job_payment_released"` |
+
+### `JOB_EVENTS` — internal job lifecycle event names
+
+Used for backend event routing. Values follow the pattern `"job_<action>"` (e.g. `JOB_EVENTS.COMPLETED → "job_completed"`).
 
 ---
 
