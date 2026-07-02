@@ -23,6 +23,7 @@ export type ConfirmTxStep =
   | "onAcceptInvite"
   | "onInvite"
   | "onMarkReady"
+  | "onRelease"
   | "onReleasePayment";
 
 /**
@@ -130,6 +131,23 @@ export interface JobReviewDto {
   receiverId: string;
   rating: number;
   review: string;
+}
+
+export interface ReceivedReview {
+  _id: string;
+  owner: Record<string, any>;   // the reviewer (who wrote the review)
+  receiver: Record<string, any>; // who received the review (this agent)
+  rating: number;
+  review: string;
+  data?: string;                 // job/collection ID the review is attached to
+  createdAt: string;
+}
+
+export interface GetReceivedReviewsQuery {
+  page?: number;
+  limit?: number;
+  /** Filter by the job/collection the review is attached to */
+  collectionId?: string;
 }
 
 export interface PaginationQuery {
@@ -308,7 +326,8 @@ export interface JobModuleType {
   getReviewChange(id: string): Promise<ResponseDto<{ changeRequest: ChangeRequestResponse | null }>>;
 
   completeJob(id: string, dto?: CompleteJobDto): Promise<ResponseDto<{ job: JobResponse; markReadyTxHash: string | null }>>;
-  releasePayment(id: string, dto?: ReleaseJobPaymentDto): Promise<ResponseDto<{ escrowReleaseTxHash: string | null }>>;
+  releasePayment(id: string, dto?: ReleaseJobPaymentDto): Promise<ResponseDto<{ escrowReleaseTxHash?: string; releasePayload?: EscrowTxPayload }>>;
 
   submitReview(id: string, dto: JobReviewDto): Promise<ResponseDto<any>>;
+  getReceivedReviews(receiverId: string, filters?: GetReceivedReviewsQuery): Promise<ResponseDto<{ data: ReceivedReview[]; total: number }>>;
 }

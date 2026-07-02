@@ -1,4 +1,5 @@
 import { io, Socket } from "socket.io-client";
+import { FEED_TYPES } from "../../constants";
 import type {
   BroadcastMessage,
   Conversation,
@@ -42,7 +43,15 @@ export class MessagingService {
   }
 
   onJobInvite(handler: (invite: JobInviteNotification) => void): void {
-    this.socket?.on("JOB_INVITE", handler);
+    this.socket?.on(FEED_TYPES.JOB_INVITE, handler);
+  }
+
+  onJobReview(handler: (review: Record<string, any>) => void): void {
+    this.socket?.on(FEED_TYPES.JOB_REVIEW, handler);
+  }
+
+  onPaymentReleased(handler: (event: Record<string, any>) => void): void {
+    this.socket?.on(FEED_TYPES.JOB_PAYMENT_RELEASED, handler);
   }
 
   sendMessage(payload: SendMessagePayload): void {

@@ -33,6 +33,8 @@ import {
   CompleteJobDto,
   ReleaseJobPaymentDto,
   JobReviewDto,
+  GetReceivedReviewsQuery,
+  ReceivedReview,
 } from "./job.dto";
 
 @Service({
@@ -328,13 +330,15 @@ export class JobService implements JobModuleType {
     });
   }
 
-  public async releasePayment(id: string, dto?: ReleaseJobPaymentDto): Promise<ResponseDto<{ escrowReleaseTxHash: string | null }>> {
+  public async releasePayment(
+    id: string,
+    dto?: ReleaseJobPaymentDto
+  ): Promise<ResponseDto<{ escrowReleaseTxHash?: string; releasePayload?: EscrowTxPayload }>> {
     return ErrorUtils.newTryFail(async () => {
-      const response = await this.connector.post<StandardResponse<{ escrowReleaseTxHash: string | null }>>(
-        `/v1/job/${id}/release`,
-        dto ?? {}
-      );
-      return response as unknown as ResponseDto<{ escrowReleaseTxHash: string | null }>;
+      const response = await this.connector.post<
+        StandardResponse<{ escrowReleaseTxHash?: string; releasePayload?: EscrowTxPayload }>
+      >(`/v1/job/${id}/release`, dto ?? {});
+      return response as unknown as ResponseDto<{ escrowReleaseTxHash?: string; releasePayload?: EscrowTxPayload }>;
     });
   }
 
@@ -342,6 +346,18 @@ export class JobService implements JobModuleType {
     return ErrorUtils.newTryFail(async () => {
       const response = await this.connector.post<StandardResponse<any>>(`/v1/job/${id}/review`, dto);
       return response as unknown as ResponseDto<any>;
+    });
+  }
+
+  /** Fetch reviews received by a user. Uses the public endpoint (no auth required). */
+  public async getReceivedReviews(
+    receiverId: string,
+    filters: GetReceivedReviewsQuery = {}
+  ): Promise<ResponseDto<{ data: ReceivedReview[]; total: number }>> {
+    return ErrorUtils.newTryFail(async () => {
+      const url = parseUrlWithQuery("/v1/reviews-public", { receiver: receiverId, ...filters });
+      const response = await this.connector.get<StandardResponse<{ data: ReceivedReview[]; total: number }>>(url);
+      return response as unknown as ResponseDto<{ data: ReceivedReview[]; total: number }>;
     });
   }
 }
