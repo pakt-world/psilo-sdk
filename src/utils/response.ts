@@ -95,18 +95,10 @@ export const ErrorUtils = {
 };
 
 export const parseUrlWithQuery = (url: string, filter: object | any) => {
-  let querys = "?";
-  const objectKeys = Object.keys(filter || {});
-  if (objectKeys.length === 0) return url;
-  objectKeys.map((key, i) => {
-    let $and = "&";
-    if (key === undefined || key === "undefined" || key === null || key === "null" || key.length === 0) {
-      querys = querys;
-    }
-    if (i + 1 === objectKeys.length) {
-      $and = "";
-    }
-    querys = querys + `${key}=${filter[key]}${$and}`;
-  });
-  return url + querys;
+  const entries = Object.entries(filter || {}).filter(([, value]) =>
+    value !== undefined && value !== null && value !== "undefined" && value !== "null"
+  );
+  if (entries.length === 0) return url;
+  const qs = entries.map(([key, value]) => `${key}=${value}`).join("&");
+  return `${url}?${qs}`;
 };

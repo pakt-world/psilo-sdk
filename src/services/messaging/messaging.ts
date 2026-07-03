@@ -54,6 +54,18 @@ export class MessagingService {
     this.socket?.on(FEED_TYPES.JOB_PAYMENT_RELEASED, handler);
   }
 
+  onJobCompleted(handler: (event: Record<string, any>) => void): void {
+    this.socket?.on(FEED_TYPES.JOB_COMPLETION, handler);
+  }
+
+  onJobApplicationAccepted(handler: (event: Record<string, any>) => void): void {
+    this.socket?.on(FEED_TYPES.JOB_APPLICATION_ACCEPTED, handler);
+  }
+
+  onJobApplied(handler: (event: Record<string, any>) => void): void {
+    this.socket?.on(FEED_TYPES.JOB_APPLICATION_RECEIVED, handler);
+  }
+
   sendMessage(payload: SendMessagePayload): void {
     this.socket?.emit("SEND_MESSAGE", payload);
   }
