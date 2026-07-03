@@ -61,5 +61,4 @@ export const FEED_TYPES = {
   JOB_REVIEW: "job_review",
   JOB_PAYMENT_RELEASED: "job_payment_released",
   JOB_COMPLETION: "job_completion",
-  JOB_APPLICATION_RECEIVED: "job_applied",
 } as const;

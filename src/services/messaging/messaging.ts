@@ -63,7 +63,7 @@ export class MessagingService {
   }
 
   onJobApplied(handler: (event: Record<string, any>) => void): void {
-    this.socket?.on(FEED_TYPES.JOB_APPLICATION_RECEIVED, handler);
+    this.socket?.on(FEED_TYPES.JOB_APPLIED, handler);
   }
 
   sendMessage(payload: SendMessagePayload): void {
