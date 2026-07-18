@@ -4,6 +4,10 @@ export interface AuthModuleType {
   register(data: RegisterDto): Promise<ResponseDto<RegisterResponse>>;
   nonce(data: NonceDto): Promise<ResponseDto<NonceResponse>>;
   verify(data: VerifyDto): Promise<ResponseDto<VerifyResponse>>;
+  paktWeb3Login(privateKey: string): Promise<string>;
+  web3AuthRequest(account: string): Promise<PaktWeb3RequestResponse>;
+  web3AuthValidate(signedMessage: string, tempToken: string, tokenId?: string): Promise<PaktWeb3ValidateResponse>;
+  web3AuthOnboard(tempToken: string, firstName: string, lastName: string | undefined, email: string): Promise<PaktWeb3OnboardResponse>;
 }
 
 export interface NonceDto {
