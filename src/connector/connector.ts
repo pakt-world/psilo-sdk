@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
+import FormData from "form-data";
 import { SDKError } from "../utils/errors";
 
 export class Connector {
@@ -78,6 +79,18 @@ export class Connector {
   public async patch<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
     try {
       const response = await this.client.patch<T>(url, data, config);
+      return this.handleResponse<T>(response);
+    } catch (error) {
+      this.handleError(error);
+    }
+  }
+
+  public async postForm<T>(url: string, formData: FormData, config?: AxiosRequestConfig): Promise<T> {
+    try {
+      const response = await this.client.post<T>(url, formData, {
+        ...config,
+        headers: { ...formData.getHeaders(), ...config?.headers },
+      });
       return this.handleResponse<T>(response);
     } catch (error) {
       this.handleError(error);
