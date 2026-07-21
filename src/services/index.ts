@@ -6,6 +6,7 @@ import { MessagingService } from "./messaging";
 import { JobService } from "./job";
 import { UserService } from "./user";
 import { UploadService } from "./upload";
+import { PaymentService } from "./payment";
 
 export * from "./escrow";
 export * from "./auth";
@@ -13,6 +14,7 @@ export * from "./messaging";
 export * from "./job";
 export * from "./user";
 export * from "./upload";
+export * from "./payment";
 
 const BASE_URLS = {
   production: "https://devpaktworkapi.kapt.xyz",
@@ -36,6 +38,7 @@ export class PsiloSDK {
   public readonly job: JobService;
   public readonly user: UserService;
   public readonly upload: UploadService;
+  public readonly payment: PaymentService;
 
   constructor(id: string) {
     this.connector = Container.of(id).get(Connector);
@@ -45,6 +48,7 @@ export class PsiloSDK {
     this.job = Container.of(id).get(JobService);
     this.user = Container.of(id).get(UserService);
     this.upload = Container.of(id).get(UploadService);
+    this.payment = Container.of(id).get(PaymentService);
   }
 
   /**

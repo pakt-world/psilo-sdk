@@ -1,8 +1,28 @@
 import { ResponseDto } from "../../utils/response";
 import { FileRecord } from "../upload/upload.dto";
 
+export interface SearchUsersQuery {
+  search?: string;
+  tags?: string;
+  limit?: number;
+  page?: number;
+  userName?: string;
+  role?: string;
+}
+
+export interface UserListResult {
+  data: UserProfile[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export interface UserModuleType {
   update(data: AccountUpdateDto): Promise<ResponseDto<UserProfile>>;
+  searchUsers(query?: SearchUsersQuery): Promise<ResponseDto<UserListResult>>;
+  getUserById(id: string): Promise<ResponseDto<UserProfile>>;
+  getUserByWalletAddress(address: string): Promise<ResponseDto<UserProfile>>;
+  getProfile(): Promise<ResponseDto<UserProfile>>;
 }
 
 // ── Request ───────────────────────────────────────────────────────────────────
@@ -68,7 +88,7 @@ export interface UserProfile {
   profileImage?: FileRecord | string;
   bgImage?: FileRecord | string;
   socials?: SocialsDto;
-  score: unknown;
+  score: number;
   isPrivate: boolean;
   meta: Record<string, unknown>;
   timeZone: string | null;
