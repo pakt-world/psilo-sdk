@@ -75,10 +75,14 @@ export class JobService implements JobModuleType {
     });
   }
 
-  public async getById(id: string): Promise<ResponseDto<{ job: JobResponse }>> {
+  public async getById(id: string): Promise<ResponseDto<JobResponse>> {
     return ErrorUtils.newTryFail(async () => {
       const response = await this.connector.get<StandardResponse<{ job: JobResponse }>>(`/v1/job/${id}`);
-      return response as unknown as ResponseDto<{ job: JobResponse }>;
+      const wrapped = response as unknown as ResponseDto<{ job: JobResponse }>;
+      if (wrapped?.data && 'job' in wrapped.data) {
+        return { ...wrapped, data: wrapped.data.job } as ResponseDto<JobResponse>;
+      }
+      return wrapped as unknown as ResponseDto<JobResponse>;
     });
   }
 

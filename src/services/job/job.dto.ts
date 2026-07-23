@@ -287,7 +287,7 @@ export interface JobModuleType {
   create(dto: CreateJobDto): Promise<ResponseDto<{ job: JobResponse; escrowTx: any }>>;
   list(query?: ListJobsQuery): Promise<ResponseDto<JobListResponse>>;
   getStats(query?: GetStatsQuery): Promise<ResponseDto<JobStatsResponse>>;
-  getById(id: string): Promise<ResponseDto<{ job: JobResponse }>>;
+  getById(id: string): Promise<ResponseDto<JobResponse>>;
   delete(id: string): Promise<ResponseDto<{ message: string }>>;
   confirmTx(id: string, dto: ConfirmTxDto): Promise<ResponseDto<JobResponse>>;
   getInvites(id: string): Promise<ResponseDto<JobInviteResponse[]>>;

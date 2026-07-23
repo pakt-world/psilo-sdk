@@ -75,75 +75,44 @@ export class MessagingService {
     this.socket?.emit(event, { conversationId });
   }
 
-  loadConversations(): Promise<Conversation[]> {
-    return new Promise((resolve) => {
-      this.socket?.emit("GET_ALL_CONVERSATIONS");
-      this.socket?.once(
-        "GET_ALL_CONVERSATIONS",
-        (data: WsEnvelope<{ messages: Conversation[] }>) => {
-          resolve(data.data?.messages ?? []);
-        }
-      );
-    });
+  async loadConversations(): Promise<Conversation[]> {
+    const data: WsEnvelope<{ messages: Conversation[] }> =
+      await this.socket!.timeout(10_000).emitWithAck("GET_ALL_CONVERSATIONS", {});
+    return data.data?.messages ?? [];
   }
 
-  createDirectConversation(recipientId: string): Promise<Conversation> {
-    return new Promise((resolve, reject) => {
-      this.socket?.emit("INITIALIZE_CONVERSATION", {
+  async createDirectConversation(recipientId: string): Promise<Conversation> {
+    const data: WsEnvelope<{ conversation: Conversation }> =
+      await this.socket!.timeout(10_000).emitWithAck("INITIALIZE_CONVERSATION", {
         type: "DIRECT",
         recipientId,
       });
-      this.socket?.once(
-        "INITIALIZE_CONVERSATION",
-        (data: WsEnvelope<{ conversation: Conversation }>) => {
-          if (data.error) {
-            reject(new Error(data.message));
-          } else {
-            resolve(data.data.conversation);
-          }
-        }
-      );
-    });
+    if (data.error) throw new Error(data.message);
+    return data.data.conversation;
   }
 
-  createGroupConversation(
+  async createGroupConversation(
     recipientIds: string[],
     name?: string
   ): Promise<Conversation> {
-    return new Promise((resolve, reject) => {
-      const recipients = recipientIds.map((id) => ({ user: id, role: "USER" }));
-      this.socket?.emit("INITIALIZE_CONVERSATION", {
+    const recipients = recipientIds.map((id) => ({ user: id, role: "USER" }));
+    const data: WsEnvelope<{ conversation: Conversation }> =
+      await this.socket!.timeout(10_000).emitWithAck("INITIALIZE_CONVERSATION", {
         type: "GROUP",
         recipients,
         name,
       });
-      this.socket?.once(
-        "INITIALIZE_CONVERSATION",
-        (data: WsEnvelope<{ conversation: Conversation }>) => {
-          if (data.error) {
-            reject(new Error(data.message));
-          } else {
-            resolve(data.data.conversation);
-          }
-        }
-      );
-    });
+    if (data.error) throw new Error(data.message);
+    return data.data.conversation;
   }
 
-  fetchConversation(conversationId: string): Promise<FetchedConversation> {
-    return new Promise((resolve, reject) => {
-      this.socket?.emit("FETCH_CONVERSATION_MESSAGES", { conversationId });
-      this.socket?.once(
-        "FETCH_CONVERSATION_MESSAGES",
-        (data: WsEnvelope<FetchedConversation>) => {
-          if (data.error) {
-            reject(new Error(data.message));
-          } else {
-            resolve(data.data);
-          }
-        }
-      );
-    });
+  async fetchConversation(conversationId: string): Promise<FetchedConversation> {
+    const data: WsEnvelope<FetchedConversation> =
+      await this.socket!.timeout(10_000).emitWithAck("FETCH_CONVERSATION_MESSAGES", {
+        conversationId,
+      });
+    if (data.error) throw new Error(data.message);
+    return data.data;
   }
 
   // paktsuite requires both conversationId and seen (timestamp string) to mark messages read
