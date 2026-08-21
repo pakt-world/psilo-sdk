@@ -28,7 +28,8 @@ export class Connector {
       throw new SDKError(
         data.error?.message || "Unknown error",
         data.error?.code || "API_ERROR",
-        data.error?.details
+        data.error?.details,
+        response.status
       );
     }
     return data;
@@ -37,14 +38,32 @@ export class Connector {
   private handleError(error: any): never {
     if (axios.isAxiosError(error)) {
       const data = error.response?.data as any;
-      if (data && data.error) {
-        throw new SDKError(
-          data.error.message || error.message,
-          data.error.code || "REQUEST_ERROR",
-          data.error.details
-        );
+      const status = error.response?.status;
+      if (data) {
+        // Paktsuite's own envelope: { error: { message, code, details } }.
+        if (data.error && typeof data.error === "object") {
+          throw new SDKError(
+            data.error.message || error.message,
+            data.error.code || "REQUEST_ERROR",
+            data.error.details,
+            status
+          );
+        }
+        // NestJS's default exception shape: { statusCode, message, error },
+        // where `error` is just the reason phrase (a string, not an object)
+        // and the real message — often an array from the validation pipe —
+        // lives at the top level.
+        if (data.message !== undefined) {
+          const message = Array.isArray(data.message) ? data.message.join("; ") : data.message;
+          throw new SDKError(
+            message || error.message,
+            typeof data.error === "string" ? data.error : "REQUEST_ERROR",
+            Array.isArray(data.message) ? data.message : undefined,
+            status
+          );
+        }
       }
-      throw new SDKError(error.message, error.code, error.response?.data);
+      throw new SDKError(error.message, error.code, error.response?.data, status);
     }
     throw new SDKError(error.message || "An unexpected error occurred", "INTERNAL_ERROR");
   }

@@ -1,4 +1,5 @@
 import { backOff } from "./backOff/backoff";
+import { SDKError } from "./errors";
 
 export enum Status {
   SUCCESS = "success",
@@ -19,6 +20,16 @@ export type IAny = any;
 type ErrorWithMessage = {
   message: string[] | object[] | any;
   code?: string;
+  details?: any;
+};
+
+// A 4xx means the request itself was rejected (bad input, no permission) —
+// replaying it changes nothing. Only retry when there's no HTTP status at
+// all (a network/timeout failure, no response received) or the server
+// itself failed (5xx), where a retry might genuinely succeed.
+const isRetryable = (e: unknown): boolean => {
+  if (!(e instanceof SDKError) || typeof e.status !== "number") return true;
+  return e.status >= 500;
 };
 
 export const ErrorUtils = {
@@ -34,6 +45,7 @@ export const ErrorUtils = {
           numOfAttempts: 10,
           maxDelay: 3550,
           delayFirstAttempt: false,
+          retry: (e) => isRetryable(e),
         },
       );
 
@@ -45,6 +57,7 @@ export const ErrorUtils = {
         status: Status.ERROR,
         message: parseErr ? parseErr.message : ["Internal Server Error"],
         code: parseErr.code,
+        validation: parseErr?.details,
       } as unknown as T;
     }
   },
@@ -71,7 +84,8 @@ export const ErrorUtils = {
     }
 
     if (ErrorUtils.isErrorWithMessage(maybeError)) {
-      return { message: [maybeError.message] };
+      const details = maybeError instanceof SDKError ? maybeError.details : undefined;
+      return { message: [maybeError.message], code: maybeError.code, details };
     }
 
     try {
