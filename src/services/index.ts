@@ -16,9 +16,11 @@ export * from "./user";
 export * from "./upload";
 export * from "./payment";
 
+// Both environments point at the same host for now — there's only one
+// live backend to talk to. Pass `baseUrl` explicitly to override either one.
 const BASE_URLS = {
   production: "https://devpaktworkapi.kapt.xyz",
-  development: "http://localhost:9000",
+  development: "https://devpaktworkapi.kapt.xyz",
 } as const;
 
 export interface PsiloSDKConfig {

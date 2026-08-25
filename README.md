@@ -1,6 +1,6 @@
 # PsiloSDK
 
-Official TypeScript SDK for the Pakt Psilo platform. Covers authentication, job lifecycle management, on-chain escrow, and real-time messaging over WebSocket.
+Official TypeScript SDK for the Pakt Psilo platform. Covers authentication, job lifecycle management, on-chain escrow, payment/chain discovery, the user directory, file uploads, and real-time messaging over WebSocket.
 
 ## Installation
 
@@ -35,8 +35,13 @@ const sdk = await PsiloSDK.init({ baseUrl: "http://localhost:3000" });
 
 | Environment | Base URL |
 |---|---|
-| Production | `https://psiloapi.kapt.xyz` |
-| Development | `https://devpsiloapi.kapt.xyz` |
+| Production | `https://devpaktworkapi.kapt.xyz` |
+| Development | `https://devpaktworkapi.kapt.xyz` |
+
+Both environments currently point at the same host — there's only one live
+backend to talk to. Pass `baseUrl` to point the SDK anywhere else (a local
+server, a future staging environment, etc.); it always takes priority over
+`development`.
 
 ---
 
@@ -118,6 +123,25 @@ const { data: verifyData } = await sdk.auth.verify({
 
 // Step 4 — attach JWT
 sdk.setAuthorizationHeader(verifyData.token);
+```
+
+---
+
+## Payment discovery (`sdk.payment`)
+
+Both endpoints are public — no JWT required. Query them before creating a job
+to find out which chain and coins are currently live.
+
+```typescript
+// All active payment coins
+const { data: coins } = await sdk.payment.fetchPaymentCoins();
+// data: PaymentCoin[]
+// each: { _id, name, symbol, contractAddress?, decimal, isToken, rpcChainId, active }
+
+// The chain the server currently has active
+const { data: rpc } = await sdk.payment.fetchActiveRpc();
+// data: ActiveRpc | null
+// { rpcChainId, rpcName, rpcUrls, blockExplorerUrls, rpcNativeCurrency, rpcType, factoryAddress? }
 ```
 
 ---
@@ -414,6 +438,46 @@ const { data } = await sdk.job.getReceivedReviews("userId", {
 
 ---
 
+## Users (`sdk.user`)
+
+```typescript
+// Fetch your own profile
+const { data } = await sdk.user.getProfile();
+// data: UserProfile
+
+// Update your own profile
+const { data } = await sdk.user.update({
+  firstName: "Ada",
+  lastName: "Lovelace",
+  userName: "ada",
+  isPrivate: false,
+  profile: { bio: { title: "..." } },
+});
+// data: UserProfile
+
+// Fetch another user's public profile by ID
+const { data } = await sdk.user.getUserById("userId");
+// data: UserProfile
+
+// Resolve a user by wallet address (no auth required) — turns an agent's
+// address into a userId, e.g. before job.inviteTalent
+const { data } = await sdk.user.getUserByWalletAddress("0xAgentWalletAddress...");
+// data: UserProfile
+
+// Search/list users
+const { data } = await sdk.user.searchUsers({
+  search: "ada",   // optional — matches name/username
+  tags: "design",  // optional
+  userName: "ada", // optional
+  role: "talent",  // optional
+  limit: 20,       // optional
+  page: 1,         // optional
+});
+// data.data: UserProfile[], data.total, data.page, data.limit
+```
+
+---
+
 ## Escrow (`sdk.escrow`)
 
 Lower-level service for direct on-chain escrow management, independent of the job model. For job-attached escrows use `sdk.job.makeDeposit`, `sdk.job.getEscrowStatus`, and `sdk.job.confirmTx`.
@@ -487,6 +551,42 @@ const { data } = await sdk.escrow.release(
   { recipient: "0xSeller..." }, // optional
 );
 // data: { success, txHash, escrowAddress, arbiter }
+```
+
+---
+
+## File uploads (`sdk.upload`)
+
+```typescript
+import { readFileSync } from "node:fs";
+
+// Upload a public file
+const { data } = await sdk.upload.upload(readFileSync("./logo.png"), "logo.png", "image/png");
+// data: FileRecord — { _id, name, url, uploaded_by, status, createdAt, ... }
+
+// Upload a private file — needs getPresignedUrl to read back
+const { data } = await sdk.upload.uploadPrivate(
+  readFileSync("./contract.pdf"),
+  "contract.pdf",
+  "application/pdf",
+);
+// data: FileRecord
+
+// List your uploads
+const { data } = await sdk.upload.getUploads({
+  page: 1,      // optional
+  limit: 20,    // optional
+  name: "logo", // optional — filter by filename
+});
+// data: { count, pages, data: FileRecord[] }
+
+// Fetch a single upload record
+const { data } = await sdk.upload.getUpload("fileId");
+// data: FileRecord
+
+// Get a presigned download URL (required for private uploads)
+const { data } = await sdk.upload.getPresignedUrl("fileId");
+// data: { fileName, url }
 ```
 
 ---
@@ -611,18 +711,37 @@ Used for backend event routing. Values follow the pattern `"job_<action>"` (e.g.
 
 ## Error handling
 
-All service methods return a `ResponseDto<T>`. Network and API errors throw an `SDKError`:
+Almost every service method is wrapped so it never rejects: on failure it
+resolves to a `ResponseDto<T>` with `status: "error"` instead of throwing.
+
+```typescript
+const { data, status, message, code, validation } = await sdk.job.create({ ... });
+if (status === "error") {
+  console.error(code, message, validation); // validation holds field-level
+  return;                                    // detail when the server sent it
+}
+// data is safe to use from here on
+```
+
+The exceptions are `AuthService.paktWeb3Login` and the `web3AuthRequest` /
+`web3AuthValidate` / `web3AuthOnboard` helpers it calls internally — they talk
+to the connector directly and can throw an `SDKError` (or a plain `Error` if
+the server's response is malformed):
 
 ```typescript
 import { SDKError } from "@pakt/psilo";
 
 try {
-  const { data } = await sdk.job.create({ ... });
+  const jwt = await sdk.auth.paktWeb3Login(privateKey);
 } catch (err) {
   if (err instanceof SDKError) {
-    console.error(err.code, err.message, err.details);
+    console.error(err.code, err.message, err.details, err.status);
   }
 }
 ```
 
-Failed requests are automatically retried with exponential backoff (up to 10 attempts, 50 ms–3550 ms delay) before the error is thrown.
+Failed requests are retried with exponential backoff (up to 10 attempts,
+50 ms–3550 ms delay) only when there's no HTTP status at all — a network or
+timeout failure — or the server returned 5xx. A 4xx response (bad input, no
+permission) fails on the first attempt instead of retrying an error that can
+never succeed.
