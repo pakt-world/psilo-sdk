@@ -66,8 +66,11 @@ export class MessagingService {
     this.socket?.on(FEED_TYPES.JOB_APPLIED, handler);
   }
 
-  sendMessage(payload: SendMessagePayload): void {
-    this.socket?.emit("SEND_MESSAGE", payload);
+  async sendMessage(payload: SendMessagePayload): Promise<FetchedConversation> {
+    const data: WsEnvelope<FetchedConversation> =
+      await this.socket!.timeout(10_000).emitWithAck("SEND_MESSAGE", payload);
+    if (data.error) throw new Error(data.message);
+    return data.data;
   }
 
   setTyping(conversationId: string, typing: boolean): void {
