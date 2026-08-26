@@ -1,7 +1,7 @@
 import { Container, Service } from "typedi";
 import { Connector, StandardResponse } from "../../connector";
 import { ErrorUtils, ResponseDto } from "../../utils/response";
-import type { ActiveRpc, PaymentCoin, PaymentModuleType } from "./payment.dto";
+import type { ActiveRpc, AvailableChain, FetchPaymentCoinsQuery, PaymentCoin, PaymentModuleType } from "./payment.dto";
 
 @Service({
   factory: (data: { id: string }) => {
@@ -18,11 +18,14 @@ export class PaymentService implements PaymentModuleType {
     this.connector = Container.of(this.id).get(Connector);
   }
 
-  public async fetchPaymentCoins(): Promise<ResponseDto<PaymentCoin[]>> {
+  public async fetchPaymentCoins(query?: FetchPaymentCoinsQuery): Promise<ResponseDto<PaymentCoin[]>> {
     return ErrorUtils.newTryFail(async () => {
+      const params: Record<string, string> = {};
+      if (query?.chainId) params.chainId = query.chainId;
+      if (query?.rpcId) params.rpcId = query.rpcId;
       const response = await this.connector.get<StandardResponse<PaymentCoin[]>>(
         "/v1/payment/coins",
-        { headers: { Authorization: undefined } },
+        { headers: { Authorization: undefined }, params },
       );
       return response as unknown as ResponseDto<PaymentCoin[]>;
     });
@@ -35,6 +38,16 @@ export class PaymentService implements PaymentModuleType {
         { headers: { Authorization: undefined } },
       );
       return response as unknown as ResponseDto<ActiveRpc | null>;
+    });
+  }
+
+  public async fetchAvailableChains(): Promise<ResponseDto<AvailableChain[]>> {
+    return ErrorUtils.newTryFail(async () => {
+      const response = await this.connector.get<StandardResponse<AvailableChain[]>>(
+        "/v1/payment/chains",
+        { headers: { Authorization: undefined } },
+      );
+      return response as unknown as ResponseDto<AvailableChain[]>;
     });
   }
 }
