@@ -35,6 +35,8 @@ export interface ActiveRpc {
   rpcName: string;
   rpcChainId: string;
   rpcUrls: string[];
+  /** Safe-to-expose RPC URLs — prefer these over `rpcUrls` in client-side signing. */
+  publicRpcUrls: string[];
   blockExplorerUrls: string[];
   rpcNativeCurrency: RpcNativeCurrency;
   rpcType: string;
@@ -54,10 +56,10 @@ export interface AvailableChain {
   icon: string | null;
   nativeCurrency: RpcNativeCurrency | null;
   blockExplorerUrls: string[];
-  rpcUrls: string[];
   factoryAddress: string | null;
   /** True for the chain used when a request sends no `chainId`. */
   isDefault: boolean;
+  publicRpcUrls: string[];
 }
 
 export interface FetchPaymentCoinsQuery {
