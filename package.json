@@ -1,6 +1,6 @@
 {
   "name": "@pakt/psilo",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "description": "SDK for interacting with Pakt Psilo Escrow Contracts via MCP",
   "files": [
     "./dist/main.js",

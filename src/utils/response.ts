@@ -17,6 +17,18 @@ export interface ResponseDto<T> {
 
 export type IAny = any;
 
+// Some endpoints (job delete, withdraw application) send the success
+// message at the top level of the envelope instead of nested under `data`,
+// even though their declared return type promises `data: { message: string }`.
+// Normalize that shape here so callers can rely on the documented contract
+// rather than each call site guessing whether `data` is populated.
+export const normalizeMessageResponse = <T extends { message: string }>(response: any): ResponseDto<T> => {
+  if (response && (response.data === undefined || response.data === null) && typeof response.message === "string") {
+    return { ...response, data: { message: response.message } as T };
+  }
+  return response as ResponseDto<T>;
+};
+
 type ErrorWithMessage = {
   message: string[] | object[] | any;
   code?: string;

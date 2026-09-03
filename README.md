@@ -35,8 +35,8 @@ const sdk = await PsiloSDK.init({ baseUrl: "http://localhost:3000" });
 
 | Environment | Base URL |
 |---|---|
-| Production | `https://devpaktworkapi.kapt.xyz` |
-| Development | `https://devpaktworkapi.kapt.xyz` |
+| Production | `https://devapi-psilo.kapt.xyz` |
+| Development | `https://devapi-psilo.kapt.xyz` |
 
 Both environments currently point at the same host — there's only one live
 backend to talk to. Pass `baseUrl` to point the SDK anywhere else (a local
@@ -59,7 +59,7 @@ const wallet = AuthService.generateWallet();
 // { privateKey: "0x...", address: "0x..." }
 
 // Authenticate on every startup
-const sdk = await PsiloSDK.init({ baseUrl: "https://devpsiloapi.kapt.xyz" });
+const sdk = await PsiloSDK.init({ baseUrl: "https://devapi-psilo.kapt.xyz" });
 const jwt = await sdk.auth.paktWeb3Login(wallet.privateKey);
 sdk.setAuthorizationHeader(jwt);
 ```
@@ -87,7 +87,7 @@ if (existsSync(WALLET_PATH)) {
   writeFileSync(WALLET_PATH, JSON.stringify(wallet), { mode: 0o600 });
 }
 
-const sdk = await PsiloSDK.init({ baseUrl: "https://devpsiloapi.kapt.xyz" });
+const sdk = await PsiloSDK.init({ baseUrl: "https://devapi-psilo.kapt.xyz" });
 const jwt = await sdk.auth.paktWeb3Login(wallet.privateKey);
 sdk.setAuthorizationHeader(jwt);
 
@@ -129,19 +129,30 @@ sdk.setAuthorizationHeader(verifyData.token);
 
 ## Payment discovery (`sdk.payment`)
 
-Both endpoints are public — no JWT required. Query them before creating a job
-to find out which chain and coins are currently live.
+All three endpoints are public — no JWT required. Query them before creating
+a job to find out which chains and coins are currently live.
 
 ```typescript
-// All active payment coins
-const { data: coins } = await sdk.payment.fetchPaymentCoins();
+// All active payment coins on the default chain (or a specific one)
+const { data: coins } = await sdk.payment.fetchPaymentCoins({ chainId: "84532" });
 // data: PaymentCoin[]
-// each: { _id, name, symbol, contractAddress?, decimal, isToken, rpcChainId, active }
+// each: { _id, name, symbol, contractAddresses?, contractAddress?, decimal,
+//         minAmount?, isToken, rpcChainIds, active, resolvedChainId? }
 
-// The chain the server currently has active
+// The default escrow chain's RPC — always the default, chainId is not selectable here
 const { data: rpc } = await sdk.payment.fetchActiveRpc();
 // data: ActiveRpc | null
-// { rpcChainId, rpcName, rpcUrls, blockExplorerUrls, rpcNativeCurrency, rpcType, factoryAddress? }
+// { rpcChainId, rpcName, rpcUrls, publicRpcUrls, blockExplorerUrls,
+//   rpcNativeCurrency, rpcType, factoryAddress? }
+
+// Every chain new escrows can be created on
+const { data: chains } = await sdk.payment.fetchAvailableChains();
+// data: AvailableChain[]
+// each: { rpcServerId, chainId, name, rpcType, icon, nativeCurrency,
+//         blockExplorerUrls, publicRpcUrls, factoryAddress, isDefault }
+// The entry flagged `isDefault` is the one used when a request omits `chainId`.
+// Use `publicRpcUrls` (not the raw `rpcUrls` from fetchActiveRpc) to resolve an
+// RPC endpoint for a specific, non-default chain.
 ```
 
 ---
