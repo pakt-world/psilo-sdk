@@ -64,8 +64,30 @@ export interface PrepareUpdateDto {
   chainId?: string;
 }
 
+/**
+ * Query for GET /v1/job.
+ *
+ * Two views live behind this endpoint:
+ * - `owner: "true"` — the party-scoped view: every job the caller is buyer OR
+ *   seller on, with full engagement data (escrow fields, wallets, deliverables).
+ *   `role` narrows it to one side. Requires a token. No default status filter.
+ * - otherwise — the public board: non-private jobs, with wallet addresses and
+ *   escrow fields omitted, optionally narrowed to one `creator`. `creator` is
+ *   NOT a way to list your own jobs (a seller never appears there); use `owner`.
+ */
 export interface ListJobsQuery {
+  /** "true" to list the jobs the caller is a party to (buyer or seller). */
+  owner?: "true";
+  /** Only with `owner: "true"`: restrict to one side. */
+  role?: "buyer" | "seller";
+  /** Single status or comma-separated list ("ongoing,review"). */
+  status?: string;
+  /** Only with `owner: "true"`: include jobs the caller has archived. */
+  includeArchived?: "true";
+  /** Public board only: narrow to this creator's public jobs. */
   creator?: string;
+  /** Public board only: "true" = only your own private jobs; "false" = public only. */
+  isPrivate?: "true" | "false";
   buyer?: string;
   seller?: string;
   chainId?: string;
@@ -192,6 +214,63 @@ export interface CancelRequestResponse {
   updatedAt: string;
 }
 
+/**
+ * What an accepted cancellation would (or did) return to the buyer, read from
+ * the escrow contract. All token values are strings in base units; use
+ * `decimals` to format.
+ *
+ * Fees are charged ON TOP of the job value (`generation: 3` escrows): the buyer
+ * deposited `totalDue = amount + releaseFee` (releaseFee = amount * feeBps / 10000,
+ * 1.5%); a refund keeps `fee = min(amount * refundFeeBps / 10000, feeCap)` (1%,
+ * capped at the token equivalent of $1) out of that deposit and returns
+ * `netToBuyer = totalDue - fee`, which is never less than `amount`.
+ *
+ * `generation: 2` escrows predate the upgrade: `totalDue = amount`, the fee is
+ * `amount * feeBps / 10000` taken out of the amount, `feeCap` is null.
+ */
+export interface RefundPreview {
+  generation: 2 | 3;
+  token: string;
+  amount: string;
+  totalDue: string;
+  feeBps: number;
+  releaseFee: string;
+  refundFeeBps: number;
+  feeCap: string | null;
+  fee: string;
+  netToBuyer: string;
+  decimals: number | null;
+  symbol: string | null;
+}
+
+/** Settlement state of the job a cancel request belongs to. */
+export interface CancelRequestJobState {
+  _id: string;
+  status: string;
+  escrowStatus: string;
+  escrowRefundTxHash: string;
+  escrowRefundedAt: string | null;
+  escrowRefundedBy: string;
+}
+
+export interface CancelRequestQueryResponse {
+  cancelRequest: CancelRequestResponse | null;
+  job: CancelRequestJobState;
+  /** Present when the job has a funded, unsettled escrow. */
+  refund: RefundPreview | null;
+}
+
+export interface ResolveCancelResponse {
+  cancelRequest: CancelRequestResponse;
+  job: JobResponse;
+  /** The refund that was (accept) or would have been (decline) paid. */
+  refund?: RefundPreview | null;
+  /** Set when the accept path refunded the buyer on chain. */
+  refundTxHash?: string;
+  /** Set when the refund failed and will be retried server-side. */
+  refundPending?: boolean;
+}
+
 export interface ChangeRequestResponse {
   _id: string;
   job: string;
@@ -208,10 +287,17 @@ export interface MakeDepositResponse {
   jobId: string;
   escrowAddress: string;
   chainId: string;
+  /** The job value, in coin units. */
   coinAmount: string;
   tokenDecimal: number;
   coinSymbol: string;
   asset: string;
+  /** Release fee rate charged on top of the job value (150 = 1.5%); 0 on a pre-upgrade factory. */
+  feeBps: number;
+  /** The release fee, in coin units ("0" on a pre-upgrade factory). */
+  feeAmount: string;
+  /** What the deposit/approve payloads actually move: coinAmount + feeAmount. Null on a pre-upgrade factory (deposit = coinAmount). */
+  totalAmount: string | null;
   onCreate: any | null;
   deposit: any | null;
   approve: any | null;
@@ -241,8 +327,11 @@ export interface JobResponse {
   tags?: string[];
   chainId: string;
   asset: string;
-  status: "open" | "filled" | "completed" | "cancelled";
+  status: "open" | "ongoing" | "review" | "completed" | "cancelling" | "cancelled";
   isPrivate: boolean;
+  /** Hidden from listings; only completed, cancelled, or open jobs can be archived. */
+  isArchived?: boolean;
+  archivedAt?: string;
   buyer: string;
   seller?: string;
   sellerId?: string;
@@ -252,6 +341,8 @@ export interface JobResponse {
   escrowAddress?: string;
   escrowOnCreateTxHash?: string;
   escrowAcceptTxHash?: string;
+  escrowReleaseTxHash?: string;
+  escrowRefundTxHash?: string;
   invites?: JobInviteResponse[];
   deliverables?: JobDeliverableResponse[];
   createdAt: string;
@@ -288,7 +379,12 @@ export interface JobModuleType {
   list(query?: ListJobsQuery): Promise<ResponseDto<JobListResponse>>;
   getStats(query?: GetStatsQuery): Promise<ResponseDto<JobStatsResponse>>;
   getById(id: string): Promise<ResponseDto<JobResponse>>;
-  delete(id: string): Promise<ResponseDto<{ message: string }>>;
+  /**
+   * Hide a job from every listing (PATCH /v1/job/:id/archive). Nothing is deleted.
+   * Only completed, cancelled, or open jobs qualify; an open job whose escrow still
+   * holds funds is refused.
+   */
+  archive(id: string): Promise<ResponseDto<{ message: string; data: { jobId: string; archived: boolean } }>>;
   confirmTx(id: string, dto: ConfirmTxDto): Promise<ResponseDto<JobResponse>>;
   getInvites(id: string): Promise<ResponseDto<JobInviteResponse[]>>;
   inviteTalent(id: string, dto: InviteTalentDto): Promise<ResponseDto<{ job?: JobResponse; invitePayload?: EscrowTxPayload }>>;
@@ -316,9 +412,9 @@ export interface JobModuleType {
   rejectApplication(id: string, appId: string): Promise<ResponseDto<{ application: ApplicationResponse }>>;
 
   requestCancel(id: string, dto: CancelJobDto): Promise<ResponseDto<{ cancelRequest: CancelRequestResponse }>>;
-  acceptCancel(id: string, dto?: ResolveCancelDto): Promise<ResponseDto<{ cancelRequest: CancelRequestResponse; job: JobResponse }>>;
-  declineCancel(id: string, dto?: ResolveCancelDto): Promise<ResponseDto<{ cancelRequest: CancelRequestResponse; job: JobResponse }>>;
-  getCancelRequest(id: string): Promise<ResponseDto<{ cancelRequest: CancelRequestResponse | null }>>;
+  acceptCancel(id: string, dto?: ResolveCancelDto): Promise<ResponseDto<ResolveCancelResponse>>;
+  declineCancel(id: string, dto?: ResolveCancelDto): Promise<ResponseDto<ResolveCancelResponse>>;
+  getCancelRequest(id: string): Promise<ResponseDto<CancelRequestQueryResponse>>;
 
   requestReviewChange(id: string, dto: ReviewChangeDto): Promise<ResponseDto<{ changeRequest: ChangeRequestResponse }>>;
   acceptReviewChange(id: string): Promise<ResponseDto<{ changeRequest: ChangeRequestResponse }>>;
