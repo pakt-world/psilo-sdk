@@ -27,6 +27,8 @@ import {
   ListApplicationsQuery,
   CancelJobDto,
   CancelRequestResponse,
+  CancelRequestQueryResponse,
+  ResolveCancelResponse,
   ResolveCancelDto,
   ReviewChangeDto,
   ChangeRequestResponse,
@@ -86,10 +88,13 @@ export class JobService implements JobModuleType {
     });
   }
 
-  public async delete(id: string): Promise<ResponseDto<{ message: string }>> {
+  public async archive(id: string): Promise<ResponseDto<{ message: string; data: { jobId: string; archived: boolean } }>> {
     return ErrorUtils.newTryFail(async () => {
-      const response = await this.connector.delete<StandardResponse<{ message: string }>>(`/v1/job/${id}`);
-      return response as unknown as ResponseDto<{ message: string }>;
+      const response = await this.connector.patch<StandardResponse<{ message: string; data: { jobId: string; archived: boolean } }>>(
+        `/v1/job/${id}/archive`,
+        {}
+      );
+      return response as unknown as ResponseDto<{ message: string; data: { jobId: string; archived: boolean } }>;
     });
   }
 
@@ -269,30 +274,31 @@ export class JobService implements JobModuleType {
     });
   }
 
-  public async acceptCancel(id: string, dto?: ResolveCancelDto): Promise<ResponseDto<{ cancelRequest: CancelRequestResponse; job: JobResponse }>> {
+  public async acceptCancel(id: string, dto?: ResolveCancelDto): Promise<ResponseDto<ResolveCancelResponse>> {
     return ErrorUtils.newTryFail(async () => {
-      const response = await this.connector.post<StandardResponse<{ cancelRequest: CancelRequestResponse; job: JobResponse }>>(
+      const response = await this.connector.post<StandardResponse<ResolveCancelResponse>>(
         `/v1/job/${id}/cancel/accept`,
         dto ?? {}
       );
-      return response as unknown as ResponseDto<{ cancelRequest: CancelRequestResponse; job: JobResponse }>;
+      return response as unknown as ResponseDto<ResolveCancelResponse>;
     });
   }
 
-  public async declineCancel(id: string, dto?: ResolveCancelDto): Promise<ResponseDto<{ cancelRequest: CancelRequestResponse; job: JobResponse }>> {
+  public async declineCancel(id: string, dto?: ResolveCancelDto): Promise<ResponseDto<ResolveCancelResponse>> {
     return ErrorUtils.newTryFail(async () => {
-      const response = await this.connector.post<StandardResponse<{ cancelRequest: CancelRequestResponse; job: JobResponse }>>(
+      const response = await this.connector.post<StandardResponse<ResolveCancelResponse>>(
         `/v1/job/${id}/cancel/decline`,
         dto ?? {}
       );
-      return response as unknown as ResponseDto<{ cancelRequest: CancelRequestResponse; job: JobResponse }>;
+      return response as unknown as ResponseDto<ResolveCancelResponse>;
     });
   }
 
-  public async getCancelRequest(id: string): Promise<ResponseDto<{ cancelRequest: CancelRequestResponse | null }>> {
+  /** The latest cancel request plus the job's settlement state and a refund preview (see RefundPreview). */
+  public async getCancelRequest(id: string): Promise<ResponseDto<CancelRequestQueryResponse>> {
     return ErrorUtils.newTryFail(async () => {
-      const response = await this.connector.get<StandardResponse<{ cancelRequest: CancelRequestResponse | null }>>(`/v1/job/${id}/cancel`);
-      return response as unknown as ResponseDto<{ cancelRequest: CancelRequestResponse | null }>;
+      const response = await this.connector.get<StandardResponse<CancelRequestQueryResponse>>(`/v1/job/${id}/cancel`);
+      return response as unknown as ResponseDto<CancelRequestQueryResponse>;
     });
   }
 
