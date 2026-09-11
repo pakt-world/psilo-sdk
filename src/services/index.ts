@@ -19,8 +19,8 @@ export * from "./payment";
 // Both environments point at the same host for now — there's only one
 // live backend to talk to. Pass `baseUrl` explicitly to override either one.
 const BASE_URLS = {
-  production: "https://devpaktworkapi.kapt.xyz",
-  development: "https://devpaktworkapi.kapt.xyz",
+  production: "https://devapi-psilo.kapt.xyz/",
+  development: "https://devapi-psilo.kapt.xyz/",
 } as const;
 
 export interface PsiloSDKConfig {
@@ -58,9 +58,7 @@ export class PsiloSDK {
    * @param config
    */
   public static async init(config: PsiloSDKConfig = {}): Promise<PsiloSDK> {
-    const resolvedUrl =
-      config.baseUrl ??
-      (config.development ? BASE_URLS.development : BASE_URLS.production);
+    const resolvedUrl = config.baseUrl ?? (config.development ? BASE_URLS.development : BASE_URLS.production);
 
     if (config.verbose) {
       console.log(`[PsiloSDK] Initializing SDK pointed to ${resolvedUrl}`);
@@ -71,10 +69,7 @@ export class PsiloSDK {
     const connector = new Connector(resolvedUrl);
     Container.of(id).set(Connector, connector);
 
-    const messaging = new MessagingService(
-      config.messagingUrl ?? "",
-      config.token ?? ""
-    );
+    const messaging = new MessagingService(config.messagingUrl ?? "", config.token ?? "");
     Container.of(id).set(MessagingService, messaging);
 
     return new PsiloSDK(id);
