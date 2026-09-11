@@ -216,20 +216,31 @@ export interface CancelRequestResponse {
 
 /**
  * What an accepted cancellation would (or did) return to the buyer, read from
- * the escrow contract: `fee = min(amount * feeBps / 10000, feeCap)`. All token
- * values are strings in the token's base units; use `decimals` to format.
- * `feeCap` is null for escrows created before the factory learned about caps
- * (then `fee` is the uncapped number).
+ * the escrow contract. All token values are strings in base units; use
+ * `decimals` to format.
+ *
+ * Fees are charged ON TOP of the job value (`generation: 3` escrows): the buyer
+ * deposited `totalDue = amount + releaseFee` (releaseFee = amount * feeBps / 10000,
+ * 1.5%); a refund keeps `fee = min(amount * refundFeeBps / 10000, feeCap)` (1%,
+ * capped at the token equivalent of $1) out of that deposit and returns
+ * `netToBuyer = totalDue - fee`, which is never less than `amount`.
+ *
+ * `generation: 2` escrows predate the upgrade: `totalDue = amount`, the fee is
+ * `amount * feeBps / 10000` taken out of the amount, `feeCap` is null.
  */
 export interface RefundPreview {
+  generation: 2 | 3;
+  token: string;
   amount: string;
+  totalDue: string;
   feeBps: number;
+  releaseFee: string;
+  refundFeeBps: number;
   feeCap: string | null;
   fee: string;
   netToBuyer: string;
   decimals: number | null;
   symbol: string | null;
-  token: string;
 }
 
 /** Settlement state of the job a cancel request belongs to. */
@@ -276,10 +287,17 @@ export interface MakeDepositResponse {
   jobId: string;
   escrowAddress: string;
   chainId: string;
+  /** The job value, in coin units. */
   coinAmount: string;
   tokenDecimal: number;
   coinSymbol: string;
   asset: string;
+  /** Release fee rate charged on top of the job value (150 = 1.5%); 0 on a pre-upgrade factory. */
+  feeBps: number;
+  /** The release fee, in coin units ("0" on a pre-upgrade factory). */
+  feeAmount: string;
+  /** What the deposit/approve payloads actually move: coinAmount + feeAmount. Null on a pre-upgrade factory (deposit = coinAmount). */
+  totalAmount: string | null;
   onCreate: any | null;
   deposit: any | null;
   approve: any | null;
