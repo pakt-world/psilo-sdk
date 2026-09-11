@@ -1,6 +1,6 @@
 import { Container, Service } from "typedi";
 import { Connector, StandardResponse } from "../../connector";
-import { ErrorUtils, ResponseDto, parseUrlWithQuery } from "../../utils/response";
+import { ErrorUtils, ResponseDto, normalizeMessageResponse, parseUrlWithQuery } from "../../utils/response";
 import {
   JobModuleType,
   CreateJobDto,
@@ -89,7 +89,7 @@ export class JobService implements JobModuleType {
   public async delete(id: string): Promise<ResponseDto<{ message: string }>> {
     return ErrorUtils.newTryFail(async () => {
       const response = await this.connector.delete<StandardResponse<{ message: string }>>(`/v1/job/${id}`);
-      return response as unknown as ResponseDto<{ message: string }>;
+      return normalizeMessageResponse<{ message: string }>(response);
     });
   }
 
@@ -232,7 +232,7 @@ export class JobService implements JobModuleType {
   public async withdrawApplication(id: string): Promise<ResponseDto<{ message: string }>> {
     return ErrorUtils.newTryFail(async () => {
       const response = await this.connector.delete<StandardResponse<{ message: string }>>(`/v1/job/${id}/apply`);
-      return response as unknown as ResponseDto<{ message: string }>;
+      return normalizeMessageResponse<{ message: string }>(response);
     });
   }
 

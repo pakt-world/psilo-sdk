@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 import FormData from "form-data";
 import { SDKError } from "../utils/errors";
+import { Status } from "../utils/response";
 
 export class Connector {
   private readonly client: AxiosInstance;
@@ -29,6 +30,18 @@ export class Connector {
         data.error?.message || "Unknown error",
         data.error?.code || "API_ERROR",
         data.error?.details,
+        response.status
+      );
+    }
+    // Paktsuite's actual envelope signals application-level errors via
+    // `status: "error"` (returned with HTTP 200), not the `success: false`
+    // shape checked above — that check never fires against the real API.
+    if (data && data.status === Status.ERROR) {
+      const message = Array.isArray(data.message) ? data.message.join("; ") : data.message;
+      throw new SDKError(
+        message || "Unknown error",
+        typeof data.code === "string" ? data.code : "API_ERROR",
+        Array.isArray(data.message) ? data.message : data.validation,
         response.status
       );
     }
