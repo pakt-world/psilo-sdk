@@ -1,4 +1,4 @@
-import { ResponseDto } from "../../utils/response";
+import { ResponseDto, RetryOptions } from "../../utils/response";
 
 export interface JobDeliverableDto {
   name: string;
@@ -385,7 +385,11 @@ export interface JobModuleType {
    * holds funds is refused.
    */
   archive(id: string): Promise<ResponseDto<{ message: string; data: { jobId: string; archived: boolean } }>>;
-  confirmTx(id: string, dto: ConfirmTxDto): Promise<ResponseDto<JobResponse>>;
+  /**
+   * Retries internally for up to a minute against RPC indexing lag on the
+   * backend's read of a just-broadcast tx before giving up.
+   */
+  confirmTx(id: string, dto: ConfirmTxDto, retry?: Pick<RetryOptions, "onRetry">): Promise<ResponseDto<JobResponse>>;
   getInvites(id: string): Promise<ResponseDto<JobInviteResponse[]>>;
   inviteTalent(id: string, dto: InviteTalentDto): Promise<ResponseDto<{ job?: JobResponse; invitePayload?: EscrowTxPayload }>>;
   acceptInvite(id: string, inviteId: string): Promise<ResponseDto<{ job: JobResponse; acceptPayload: any }>>;
@@ -403,7 +407,11 @@ export interface JobModuleType {
   listAllInvites(query?: ListAllInvitesQuery): Promise<ResponseDto<JobInviteResponse[]>>;
 
   makeDeposit(id: string, talentId?: string): Promise<ResponseDto<MakeDepositResponse>>;
-  validatePayment(id: string): Promise<ResponseDto<{ job: JobResponse; onChain: any }>>;
+  /**
+   * Retries internally for up to a minute against RPC indexing lag before
+   * giving up.
+   */
+  validatePayment(id: string, retry?: Pick<RetryOptions, "onRetry">): Promise<ResponseDto<{ job: JobResponse; onChain: any }>>;
 
   apply(id: string, dto: ApplyJobDto): Promise<ResponseDto<{ application: ApplicationResponse }>>;
   withdrawApplication(id: string): Promise<ResponseDto<{ message: string }>>;

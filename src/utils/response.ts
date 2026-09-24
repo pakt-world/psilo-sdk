@@ -120,6 +120,44 @@ export const ErrorUtils = {
   },
 };
 
+export interface RetryProgress {
+  attempt: number;
+  attempts: number;
+  message: string;
+}
+
+export interface RetryOptions {
+  attempts?: number;
+  delayMs?: number;
+  onRetry?: (progress: RetryProgress) => void;
+}
+
+// confirmTx / validatePayment read chain state right after a tx broadcasts,
+// and can race a backend RPC node that hasn't indexed it yet. The backend
+// reports that as a normal 4xx rejection ("Transaction not found on chain"),
+// which isRetryable above correctly refuses to retry — most 4xx really are
+// terminal, and newTryFail's own window is under 4s regardless. This specific
+// condition is transient and can take much longer to clear, so callers that
+// hit chain state right after broadcasting opt into this slower, longer
+// retry on top of a call that already returns an error-shaped result instead
+// of throwing (see newTryFail's catch block).
+export const retryOnChainLag = async <T extends { status: Status; message?: unknown }>(
+  f: () => Promise<T>,
+  { attempts = 6, delayMs = 10_000, onRetry }: RetryOptions = {},
+): Promise<T> => {
+  let result: T;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    result = await f();
+    if (result.status !== Status.ERROR) return result;
+    if (attempt < attempts) {
+      const message = Array.isArray(result.message) ? result.message.join("; ") : String(result.message ?? "");
+      onRetry?.({ attempt, attempts, message });
+    }
+  }
+  return result!;
+};
+
 export const parseUrlWithQuery = (url: string, filter: object | any) => {
   const entries = Object.entries(filter || {}).filter(([, value]) =>
     value !== undefined && value !== null && value !== "undefined" && value !== "null"
