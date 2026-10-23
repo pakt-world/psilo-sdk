@@ -1,6 +1,6 @@
 import { Container, Service } from "typedi";
 import { Connector, StandardResponse } from "../../connector";
-import { ErrorUtils, ResponseDto, normalizeMessageResponse, parseUrlWithQuery } from "../../utils/response";
+import { ErrorUtils, ResponseDto, RetryOptions, normalizeMessageResponse, parseUrlWithQuery, retryOnChainLag } from "../../utils/response";
 import {
   JobModuleType,
   CreateJobDto,
@@ -98,11 +98,15 @@ export class JobService implements JobModuleType {
     });
   }
 
-  public async confirmTx(id: string, dto: ConfirmTxDto): Promise<ResponseDto<JobResponse>> {
-    return ErrorUtils.newTryFail(async () => {
-      const response = await this.connector.post<StandardResponse<JobResponse>>(`/v1/job/${id}/confirm-tx`, dto);
-      return response as unknown as ResponseDto<JobResponse>;
-    });
+  public async confirmTx(id: string, dto: ConfirmTxDto, retry?: Pick<RetryOptions, "onRetry">): Promise<ResponseDto<JobResponse>> {
+    return retryOnChainLag(
+      () =>
+        ErrorUtils.newTryFail(async () => {
+          const response = await this.connector.post<StandardResponse<JobResponse>>(`/v1/job/${id}/confirm-tx`, dto);
+          return response as unknown as ResponseDto<JobResponse>;
+        }),
+      { onRetry: retry?.onRetry },
+    );
   }
 
   public async getInvites(id: string): Promise<ResponseDto<JobInviteResponse[]>> {
@@ -220,11 +224,15 @@ export class JobService implements JobModuleType {
     });
   }
 
-  public async validatePayment(id: string): Promise<ResponseDto<{ job: JobResponse; onChain: any }>> {
-    return ErrorUtils.newTryFail(async () => {
-      const response = await this.connector.post<StandardResponse<{ job: JobResponse; onChain: any }>>(`/v1/job/${id}/payment/validate`);
-      return response as unknown as ResponseDto<{ job: JobResponse; onChain: any }>;
-    });
+  public async validatePayment(id: string, retry?: Pick<RetryOptions, "onRetry">): Promise<ResponseDto<{ job: JobResponse; onChain: any }>> {
+    return retryOnChainLag(
+      () =>
+        ErrorUtils.newTryFail(async () => {
+          const response = await this.connector.post<StandardResponse<{ job: JobResponse; onChain: any }>>(`/v1/job/${id}/payment/validate`);
+          return response as unknown as ResponseDto<{ job: JobResponse; onChain: any }>;
+        }),
+      { onRetry: retry?.onRetry },
+    );
   }
 
   public async apply(id: string, dto: ApplyJobDto): Promise<ResponseDto<{ application: ApplicationResponse }>> {
