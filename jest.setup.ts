@@ -1,5 +1,5 @@
 import 'reflect-metadata'
-import dotenv from 'dotenv';
+import * as dotenv from 'dotenv';
 import { fetch, Headers } from 'undici';
 
 // @ts-ignore

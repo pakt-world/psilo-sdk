@@ -7,6 +7,7 @@ import { JobService } from "./job";
 import { UserService } from "./user";
 import { UploadService } from "./upload";
 import { PaymentService } from "./payment";
+import { IssueService } from "./issue";
 
 export * from "./escrow";
 export * from "./auth";
@@ -15,6 +16,7 @@ export * from "./job";
 export * from "./user";
 export * from "./upload";
 export * from "./payment";
+export * from "./issue";
 
 // Both environments point at the same host for now — there's only one
 // live backend to talk to. Pass `baseUrl` explicitly to override either one.
@@ -41,6 +43,7 @@ export class PsiloSDK {
   public readonly user: UserService;
   public readonly upload: UploadService;
   public readonly payment: PaymentService;
+  public readonly issue: IssueService;
 
   constructor(id: string) {
     this.connector = Container.of(id).get(Connector);
@@ -51,6 +54,7 @@ export class PsiloSDK {
     this.user = Container.of(id).get(UserService);
     this.upload = Container.of(id).get(UploadService);
     this.payment = Container.of(id).get(PaymentService);
+    this.issue = Container.of(id).get(IssueService);
   }
 
   /**
