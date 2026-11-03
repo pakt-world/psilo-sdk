@@ -28,6 +28,7 @@ import {
   CancelJobDto,
   CancelRequestResponse,
   CancelRequestQueryResponse,
+  RefundJobResponse,
   ResolveCancelResponse,
   ResolveCancelDto,
   ReviewChangeDto,
@@ -299,6 +300,17 @@ export class JobService implements JobModuleType {
         dto ?? {}
       );
       return response as unknown as ResponseDto<ResolveCancelResponse>;
+    });
+  }
+
+  /**
+   * The seller returns the funds to the buyer (relinquishes the escrow); no buyer consent needed.
+   * Self-custody sellers get `refundPayload`: sign it, then confirmTx(id, { step: "onRefund", txHash }).
+   */
+  public async refund(id: string): Promise<ResponseDto<RefundJobResponse>> {
+    return ErrorUtils.newTryFail(async () => {
+      const response = await this.connector.post<StandardResponse<RefundJobResponse>>(`/v1/job/${id}/refund`, {});
+      return response as unknown as ResponseDto<RefundJobResponse>;
     });
   }
 
