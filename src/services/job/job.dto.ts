@@ -24,13 +24,15 @@ export type ConfirmTxStep =
   | "onInvite"
   | "onMarkReady"
   | "onRelease"
-  | "onReleasePayment";
+  | "onReleasePayment"
+  | "onRefund";
 
 /**
  * Sent to POST /v1/job/:id/confirm-tx after an external wallet signs a transaction.
  * Used to confirm on-chain actions across the job lifecycle: escrow creation (onCreate),
  * job acceptance (onAccept), invite acceptance (onAcceptInvite), marking a job ready for
- * payment (onMarkReady), and releasing payment to the seller (onReleasePayment).
+ * payment (onMarkReady), releasing payment to the seller (onReleasePayment), and the seller
+ * returning the funds to the buyer (onRefund, after JobService.refund).
  * The caller's role (buyer vs seller) is derived from their auth token — the backend
  * validates that the signer is authorised for the given step.
  * Provide txHash if the wallet already broadcast the transaction, or signedData if the
@@ -260,6 +262,18 @@ export interface CancelRequestQueryResponse {
   refund: RefundPreview | null;
 }
 
+/**
+ * POST /v1/job/:id/refund — the seller returns the funds to the buyer (relinquishes the escrow),
+ * with no cooperation from the buyer. After the work is marked ready this is the only way a
+ * cancellation can happen. Custodial sellers are signed for server-side (`refundTxHash`);
+ * self-custody sellers get `refundPayload` to sign, then confirmTx with step "onRefund".
+ */
+export interface RefundJobResponse {
+  job: JobResponse;
+  refundTxHash?: string;
+  refundPayload?: EscrowTxPayload;
+}
+
 export interface ResolveCancelResponse {
   cancelRequest: CancelRequestResponse;
   job: JobResponse;
@@ -422,6 +436,7 @@ export interface JobModuleType {
   requestCancel(id: string, dto: CancelJobDto): Promise<ResponseDto<{ cancelRequest: CancelRequestResponse }>>;
   acceptCancel(id: string, dto?: ResolveCancelDto): Promise<ResponseDto<ResolveCancelResponse>>;
   declineCancel(id: string, dto?: ResolveCancelDto): Promise<ResponseDto<ResolveCancelResponse>>;
+  refund(id: string): Promise<ResponseDto<RefundJobResponse>>;
   getCancelRequest(id: string): Promise<ResponseDto<CancelRequestQueryResponse>>;
 
   requestReviewChange(id: string, dto: ReviewChangeDto): Promise<ResponseDto<{ changeRequest: ChangeRequestResponse }>>;
