@@ -115,7 +115,12 @@ export interface IssueResponse {
   poolExhausted: boolean;
   verdict: Verdict | "";
   outcome: "plaintiff_won" | "defense_won" | "";
-  decidedBy?: "panel" | "overseer_fallback" | "";
+  /**
+   * "panel": two matching votes, the only way a defended case resolves. "default": the defender
+   * did not answer within the defence limit. "overseer_fallback" and "operator" appear only on
+   * cases resolved before paktsuite-v2 #129; the API no longer decides that way.
+   */
+  decidedBy?: "panel" | "default" | "overseer_fallback" | "operator" | "";
   resolvedAt?: string;
   settlement: {
     status: "pending" | "settled" | "failed";
