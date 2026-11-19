@@ -17,6 +17,7 @@ export * from "./user";
 export * from "./upload";
 export * from "./payment";
 export * from "./issue";
+export * from "./terms";
 
 // Both environments point at the same host for now — there's only one
 // live backend to talk to. Pass `baseUrl` explicitly to override either one.

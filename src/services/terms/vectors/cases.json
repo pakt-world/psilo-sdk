@@ -1,0 +1,561 @@
+{
+ "base": "v1-basic.json",
+ "note": "Each case applies text replacements to the base file and states whether hash.py and hash.ts must accept it. Both implementations read this file.",
+ "cases": [
+  {
+   "name": "vector as is (LF inside description is allowed)",
+   "replace": [],
+   "valid": true
+  },
+  {
+   "name": "space before a line break",
+   "replace": [
+    [
+     "page.\\nCopy",
+     "page. \\nCopy"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "blank line (two line breaks)",
+   "replace": [
+    [
+     "page.\\nCopy",
+     "page.\\n\\nCopy"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "line starting with a space",
+   "replace": [
+    [
+     "page.\\nCopy",
+     "page.\\n Copy"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "NFD cafe in title",
+   "replace": [
+    [
+     "caf\u00e9",
+     "cafe\u0301"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "trailing ZWSP in format",
+   "replace": [
+    [
+     "\"PNG, 1920x1080\"",
+     "\"PNG, 1920x1080\u200b\""
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "format character U+0600 (not in the schema's list) inside a description",
+   "replace": [
+    [
+     "Hero images in the brand palette",
+     "Hero images in the \u0600brand palette"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "RLO inside a stated check",
+   "replace": [
+    [
+     "warm, plain words",
+     "warm, \u202eplain words"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "whitespace-only stated check",
+   "replace": [
+    [
+     "\"The copy follows the tone section of the brand guide: warm, plain words, no superlatives.\"",
+     "\"   \""
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "leading space in title",
+   "replace": [
+    [
+     "\"Landing page",
+     "\" Landing page"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "trailing newline escape in title",
+   "replace": [
+    [
+     "a caf\u00e9\"",
+     "a caf\u00e9\\n\""
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "LF in title (single-line field)",
+   "replace": [
+    [
+     "\"Landing page for",
+     "\"Landing\\npage for"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "trailing newline in an id",
+   "replace": [
+    [
+     "\"id\": \"page\"",
+     "\"id\": \"page\\n\""
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "trailing newline in a hash",
+   "replace": [
+    [
+     "16b89d\"",
+     "16b89d\\n\""
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "tab inside a command argument",
+   "replace": [
+    [
+     "\"--errors-only\"",
+     "\"--errors\\tonly\""
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "deadline in milliseconds",
+   "replace": [
+    [
+     "\"deadline\": 1798761600",
+     "\"deadline\": 1798761600000"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "deadline before 2026",
+   "replace": [
+    [
+     "\"deadline\": 1798761600",
+     "\"deadline\": 1700000000"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "deadline after 2100",
+   "replace": [
+    [
+     "\"deadline\": 1798761600",
+     "\"deadline\": 4102444801"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "deadline at the 2100 maximum",
+   "replace": [
+    [
+     "\"deadline\": 1798761600",
+     "\"deadline\": 4102444800"
+    ]
+   ],
+   "valid": true
+  },
+  {
+   "name": "float deadline",
+   "replace": [
+    [
+     "\"deadline\": 1798761600",
+     "\"deadline\": 1798761600.5"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "quantity 1.0",
+   "replace": [
+    [
+     "\"quantity\": 3",
+     "\"quantity\": 1.0"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "quantity 1e0",
+   "replace": [
+    [
+     "\"quantity\": 3",
+     "\"quantity\": 1e0"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "duplicate key",
+   "replace": [
+    [
+     "\"quantity\": 3",
+     "\"quantity\": 3, \"quantity\": 3"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "objective with free text instead of a recipe",
+   "replace": [
+    [
+     "\"kind\": \"objective\",\n        \"image\": \"docker.io",
+     "\"kind\": \"objective\",\n        \"check\": \"it works\",\n        \"image\": \"docker.io"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "objective image with tag and digest",
+   "replace": [
+    [
+     "\"docker.io/library/python@sha256:",
+     "\"docker.io/library/python:3.12@sha256:"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "registry port before the digest",
+   "replace": [
+    [
+     "\"docker.io/library/python@sha256:",
+     "\"localhost:5000/python@sha256:"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "CGJ U+034F in title",
+   "replace": [
+    [
+     "\"Landing page",
+     "\"Land\u034fing page"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "variation-selector smuggling U+E0149.. in a check",
+   "replace": [
+    [
+     "warm, plain words",
+     "warm\udb40\udd49\udb40\udd67\udb40\udd6e, plain words"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "Hangul filler U+3164 in title",
+   "replace": [
+    [
+     "\"Landing page",
+     "\"Landing\u3164 page"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "braille blank U+2800 in title",
+   "replace": [
+    [
+     "\"Landing page",
+     "\"Landing\u2800 page"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "NBSP in the middle of the title",
+   "replace": [
+    [
+     "\"Landing page",
+     "\"Landing\u00a0page"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "ideographic space in a description",
+   "replace": [
+    [
+     "Hero images in the brand palette",
+     "Hero images in the\u3000brand palette"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "double space in title",
+   "replace": [
+    [
+     "\"Landing page",
+     "\"Landing  page"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "Cyrillic a in title (homoglyphs are not refused)",
+   "replace": [
+    [
+     "\"Landing page",
+     "\"L\u0430nding page"
+    ]
+   ],
+   "valid": true
+  },
+  {
+   "name": "character new in Unicode 17 (U+16EA0) in title",
+   "replace": [
+    [
+     "\"Landing page",
+     "\"Landing \ud81b\udea0 page"
+    ]
+   ],
+   "valid": true
+  },
+  {
+   "name": "clock-reading command (allowed by the format; weighing it is evidence law)",
+   "replace": [
+    [
+     "\"java\",",
+     "\"sh\", \"-c\", \"test $(date +%s) -lt 1798761600 && java\","
+    ]
+   ],
+   "valid": true
+  },
+  {
+   "name": "expect with stdout hash only, no exit code",
+   "replace": [
+    [
+     "\"expect\": {\n          \"exitCode\": 0\n        }\n      },\n      \"format\": \"PNG",
+     "\"expect\": {\n          \"stdoutSha256\": \"0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"\n        }\n      },\n      \"format\": \"PNG"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "objective test without platform",
+   "replace": [
+    [
+     "\"platform\": \"linux/amd64\",\n        \"command\": [\n          \"java\"",
+     "\"command\": [\n          \"java\""
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "unsupported platform",
+   "replace": [
+    [
+     "\"platform\": \"linux/amd64\",\n        \"command\": [\n          \"java\"",
+     "\"platform\": \"linux/riscv64\",\n        \"command\": [\n          \"java\""
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "decimals written as -0",
+   "replace": [
+    [
+     "\"decimals\": 6",
+     "\"decimals\": -0"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "zero token address",
+   "replace": [
+    [
+     "\"0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e\"",
+     "\"0x0000000000000000000000000000000000000000\""
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "id given as a list",
+   "replace": [
+    [
+     "\"id\": \"page\"",
+     "\"id\": [\"page\"]"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "byte-order mark before the document",
+   "replace": [
+    [
+     "{\n  \"schema\"",
+     "\ufeff{\n  \"schema\""
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "lone surrogate escape",
+   "replace": [
+    [
+     "\"Landing page",
+     "\"Landing\\ud800 page"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "__proto__ key",
+   "replace": [
+    [
+     "\"buildsOn\": [],",
+     "\"buildsOn\": [], \"__proto__\": {\"title\": \"x\"},"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "uppercase hex in a hash",
+   "replace": [
+    [
+     "\"sha256\": \"0xb928b26e",
+     "\"sha256\": \"0xB928b26e"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "amount zero",
+   "replace": [
+    [
+     "\"500000000\"",
+     "\"0\""
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "title of 201 characters",
+   "replace": [
+    [
+     "Landing page for a caf\u00e9",
+     "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "unknown top-level field",
+   "replace": [
+    [
+     "\"buildsOn\": [],",
+     "\"buildsOn\": [], \"extra\": 1,"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "missing subcontractingAllowed",
+   "replace": [
+    [
+     "\"subcontractingAllowed\": true,",
+     ""
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "objective image with tag only",
+   "replace": [
+    [
+     "\"image\": \"ghcr.io/validator/validator@sha256:a7446b374135ce30eb9b6ca764b180c48abe7bf74dd45b7f12f79874c276676b\"",
+     "\"image\": \"ghcr.io/validator/validator:latest\""
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "objective with empty expect",
+   "replace": [
+    [
+     "\"expect\": {\n          \"exitCode\": 0\n        }\n      },\n      \"format\": \"Git",
+     "\"expect\": {}\n      },\n      \"format\": \"Git"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "objective input that is not a material",
+   "replace": [
+    [
+     "\"palette-check\",\n          \"brand-guide\"\n        ]",
+     "\"palette-check\",\n          \"brand-guide-v4\"\n        ]"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "material without providedBy",
+   "replace": [
+    [
+     "\"providedBy\": \"buyer\",\n      \"confidential\": true",
+     "\"confidential\": true"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "material providedBy someone else",
+   "replace": [
+    [
+     "\"providedBy\": \"buyer\",\n      \"confidential\": true",
+     "\"providedBy\": \"pakt\",\n      \"confidential\": true"
+    ]
+   ],
+   "valid": false
+  },
+  {
+   "name": "stated test with an extra field",
+   "replace": [
+    [
+     "\"kind\": \"stated\",",
+     "\"kind\": \"stated\", \"timeoutSeconds\": 5,"
+    ]
+   ],
+   "valid": false
+  }
+ ]
+}

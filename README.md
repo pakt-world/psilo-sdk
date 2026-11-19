@@ -566,6 +566,89 @@ const { data } = await sdk.escrow.release(
 
 ---
 
+## Job Terms v1: hash, sign, verify (`@pakt/psilo`)
+
+A job is enforceable by the Pakt court only when the escrow's on-chain `metadataHash` is the hash of complete
+Job Terms v1: one JSON document with the title, description, deliverables (each with an id, description,
+acceptance test, format and quantity), price (amount, token, chain id, decimals), deadline, materials (each with
+the sha256 of its bytes), whether subcontracting is allowed, earlier jobs it builds on, and the statute-set hash.
+
+What is hashed: the document is parsed strictly (no floats, no duplicate keys), checked against a JSON schema and
+text rules (NFC, no control or invisible characters), written in canonical form (RFC 8785: keys sorted, no
+whitespace) and hashed with keccak256 over its UTF-8 bytes. What is signed: EIP-712 typed data with the domain
+`{ name: "Pakt Job Terms", version: "1", chainId, verifyingContract: <escrow> }` and the message
+`title, amount, token, decimals, deadline, metadataHash, escrow`, so a wallet shows the readable fields next to the hash.
+
+Server side support is pending: the Pakt API does not yet accept a terms hash when it creates an escrow, so the
+escrow's on-chain `metadataHash` will not match your terms and `attestEscrowTerms` reports a mismatch for every job
+today. Until the server records it, compute the hash and signature on your side and keep them with the job record;
+once it does, anyone can recheck the hash against the chain. Nothing here touches your funds.
+
+Runtime: the text rules are pinned to Unicode 17.0, so check `process.versions.unicode`. It works on any Node that
+reports `17.0` (measured: Node 20.20+, 24.14+ and 26), in `full` mode. On a Node with an older Unicode the SDK runs
+in `assigned-only` mode: the same hash, but any text holding a character that Node's older tables do not yet assign
+is refused with a `JobTermsError`. A Node with a newer Unicode than 17.0 is refused. `checkJobTermsRuntime()`
+returns `{ unicode, mode }`.
+
+```typescript
+import { Wallet, JsonRpcProvider } from "ethers";
+import { hashJobTerms, signJobTerms, verifyJobTermsSignature, attestEscrowTerms } from "@pakt/psilo";
+
+// Pass the terms as text (the strict path) or as an object. Incomplete terms are refused with a
+// JobTermsError that lists every missing field, for example a deliverable without an acceptanceTest.
+const terms = {
+  schema: "pakt.job-terms/1",
+  title: "Landing page",
+  description: "One responsive page.",
+  deliverables: [
+    {
+      id: "page",
+      description: "Static landing page",
+      acceptanceTest: { kind: "stated", check: "The page loads and shows the menu and the contact form." },
+      format: "Git repository",
+      quantity: 1,
+    },
+  ],
+  price: { amount: "500000000", token: "0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e", chainId: 43114, decimals: 6 },
+  deadline: 1798761600, // unix seconds
+  materials: [],
+  subcontractingAllowed: true,
+  buildsOn: [],
+  statuteSetSha256: "0xaeaa9cdb505e3b29fef262d49552a7828d870cb1845ecf47190126aab216b89d",
+};
+
+// 1. HASH. Keep this value with the job; once the server records it, it is the escrow's metadataHash.
+const metadataHash = hashJobTerms(terms);
+
+// 2. SIGN. EIP-712, bound to one escrow and to the terms' chain (price.chainId). Any ethers signer works.
+//    The seller signs at accept. The buyer signs only if someone else created the escrow.
+const escrow = "0x000000000000000000000000000000000000dEaD"; // your escrow address
+const wallet = Wallet.createRandom();
+const signature = await signJobTerms(terms, wallet, escrow);
+
+// Check a signature (ecrecover, or ERC-1271 for contract wallets).
+const provider = new JsonRpcProvider(process.env.RPC_URL);
+const { ok, method } = await verifyJobTermsSignature({
+  provider, chainId: terms.price.chainId, escrow, terms, signer: wallet.address, signature,
+});
+
+// 3. VERIFY AGAINST THE ESCROW. Reads the escrow's metadataHash at a stated block number and compares it
+//    with the hash of your terms. match is false when the chain holds different terms. It throws when the
+//    block is a tag like "latest", when the escrow did not exist yet, when the Psilo factory does not list
+//    the escrow, or when the RPC is on another chain than price.chainId.
+const { attestation, attestationKeccak256 } = await attestEscrowTerms({
+  provider, escrow, terms,
+  factory: process.env.PSILO_FACTORY!, // the Psilo escrow factory address on that chain
+  blockNumber: await provider.getBlockNumber(),
+});
+if (!attestation.match) throw new Error("the escrow does not carry these terms: no court will hear it");
+```
+
+Chain ids and addresses are parameters, never constants: the chain is whatever the terms state in `price.chainId`
+(Avalanche C-Chain is 43114). Other exports: `canonicalizeJobTerms` (the canonical string that is hashed),
+`jobTermsTypedData` (domain, types and message for signing with another wallet library), `jobTermsDigest`,
+`hashCanonicalJobTerms`, `JobTermsError`.
+
 ## File uploads (`sdk.upload`)
 
 ```typescript
