@@ -579,9 +579,10 @@ whitespace) and hashed with keccak256 over its UTF-8 bytes. What is signed: EIP-
 `{ name: "Pakt Job Terms", version: "1", chainId, verifyingContract: <escrow> }` and the message
 `title, amount, token, decimals, deadline, metadataHash, escrow`, so a wallet shows the readable fields next to the hash.
 
-Server side support is pending: the Pakt API does not yet accept or return a terms hash. Until it does, the SDK
-computes and verifies everything on your side: you pass the hash as `metadataHash` when you create the escrow, and
-anyone can recheck it against the chain. Nothing here touches your funds.
+Server side support is pending: the Pakt API does not yet accept a terms hash when it creates an escrow, so the
+escrow's on-chain `metadataHash` will not match your terms and `attestEscrowTerms` reports a mismatch for every job
+today. Until the server records it, compute the hash and signature on your side and keep them with the job record;
+once it does, anyone can recheck the hash against the chain. Nothing here touches your funds.
 
 Runtime: the text rules are pinned to Unicode 17.0, so check `process.versions.unicode`. It works on any Node that
 reports `17.0` (measured: Node 20.20+, 24.14+ and 26), in `full` mode. On a Node with an older Unicode the SDK runs
@@ -616,7 +617,7 @@ const terms = {
   statuteSetSha256: "0xaeaa9cdb505e3b29fef262d49552a7828d870cb1845ecf47190126aab216b89d",
 };
 
-// 1. HASH. Use this value as the escrow's metadataHash when you create it.
+// 1. HASH. Keep this value with the job; once the server records it, it is the escrow's metadataHash.
 const metadataHash = hashJobTerms(terms);
 
 // 2. SIGN. EIP-712, bound to one escrow and to the terms' chain (price.chainId). Any ethers signer works.
