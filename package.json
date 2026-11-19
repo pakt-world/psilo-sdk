@@ -1,6 +1,6 @@
 {
   "name": "@pakt/psilo",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "SDK for interacting with Pakt Psilo Escrow Contracts via MCP",
   "files": [
     "./dist/main.js",
@@ -42,6 +42,7 @@
     "@types/uuid": "^9.0.8",
     "@typescript-eslint/eslint-plugin": "^5.43.0",
     "@typescript-eslint/parser": "^5.20.0",
+    "canonicalize": "^2.0.0",
     "dotenv": "^16.0.3",
     "eslint": "^8.0.1",
     "eslint-config-standard-with-typescript": "^34.0.1",
@@ -63,6 +64,7 @@
     "access": "public"
   },
   "dependencies": {
+    "ajv": "^8.20.0",
     "axios": "^1.11.0",
     "crypto-js": "^4.1.1",
     "ethers": "^6.16.0",
